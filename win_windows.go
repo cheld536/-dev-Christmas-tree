@@ -87,7 +87,7 @@ func page(n int) {
 			call(u, "ShowWindow", h, v)
 		}
 	}
-	for _, id := range []int{idVisualPage, idAudioPage} {
+	for _, id := range []int{idVisualPage, idAudioPage, idCouplePage} {
 		call(u, "InvalidateRect", controls[id], 0, 0)
 	}
 }
@@ -291,47 +291,53 @@ func setToggle(id int, v bool) {
 }
 
 const (
-	idTheme       = 101
-	idDir         = 102
-	idRenderer    = 103
-	idSpeed       = 110
-	idLight       = 111
-	idFPS         = 112
-	idSize        = 113
-	idSnow        = 120
-	idOrn         = 121
-	idMsg         = 122
-	idBloom       = 123
-	idMatrix      = 124
-	idCount       = 125
-	idMonitor     = 126
-	idMusic       = 127
-	idMulti       = 128
-	idPhysics     = 129
-	idCustom      = 130
-	idBG          = 131
-	idMessage     = 132
-	idSave        = 140
-	idReset       = 141
-	idTest        = 142
-	idExport      = 143
-	idImport      = 144
-	idWindows     = 145
-	idFull        = 146
-	idVisualPage  = 147
-	idAudioPage   = 148
-	idAudioPreset = 150
-	idAudioGain   = 151
-	idBassGain    = 152
-	idMidGain     = 153
-	idHighGain    = 154
-	idSpectrum    = 155
-	idBPM         = 156
-	idSafe        = 157
-	idLowPower    = 158
-	idCodeStyle   = 159
-	idResolution  = 160
-	idVersion     = 161
+	idTheme         = 101
+	idDir           = 102
+	idRenderer      = 103
+	idSpeed         = 110
+	idLight         = 111
+	idFPS           = 112
+	idSize          = 113
+	idSnow          = 120
+	idOrn           = 121
+	idMsg           = 122
+	idBloom         = 123
+	idMatrix        = 124
+	idCount         = 125
+	idMonitor       = 126
+	idMusic         = 127
+	idMulti         = 128
+	idPhysics       = 129
+	idCustom        = 130
+	idBG            = 131
+	idMessage       = 132
+	idSave          = 140
+	idReset         = 141
+	idTest          = 142
+	idExport        = 143
+	idImport        = 144
+	idWindows       = 145
+	idFull          = 146
+	idVisualPage    = 147
+	idAudioPage     = 148
+	idAudioPreset   = 150
+	idAudioGain     = 151
+	idBassGain      = 152
+	idMidGain       = 153
+	idHighGain      = 154
+	idSpectrum      = 155
+	idBPM           = 156
+	idSafe          = 157
+	idLowPower      = 158
+	idCodeStyle     = 159
+	idResolution    = 160
+	idVersion       = 161
+	idCouplePage    = 162
+	idCoupleEnabled = 163
+	idCoupleFirst   = 164
+	idCoupleSecond  = 165
+	idCoupleDate    = 166
+	idCoupleStatus  = 167
 )
 
 func selectCombo(id int, items []string, s string) {
@@ -366,6 +372,7 @@ func uiSet() {
 	set(controls[idCustom], "트리 색상  "+cfg.Custom)
 	set(controls[idBG], "배경 색상  "+cfg.Background)
 	set(controls[idMessage], cfg.Message)
+	setCoupleControls(cfg.Couple)
 	uiRead()
 }
 func uiRead() {
@@ -394,7 +401,9 @@ func uiRead() {
 		*p = toggleState[id]
 	}
 	cfg.Message = txt(controls[idMessage])
+	cfg.Couple = readCoupleControls()
 	cfg = normalize(cfg)
+	updateCoupleStatus()
 }
 
 type choose struct {
@@ -499,9 +508,13 @@ func command(id int) {
 		page(1)
 	case idAudioPage:
 		page(2)
+	case idCouplePage:
+		page(3)
 	case idExport:
 		if p := fileDialog(true); p != "" {
-			if e := save(p, cfg); e != nil {
+			preset := cfg
+			preset.Couple = CoupleSettings{}
+			if e := save(p, preset); e != nil {
 				box(mainwin, e.Error(), 0x10)
 			}
 		}
@@ -511,6 +524,7 @@ func command(id int) {
 			if e != nil {
 				box(mainwin, e.Error(), 0x10)
 			} else {
+				s.Couple = cfg.Couple
 				cfg = s
 				uiSet()
 			}
@@ -561,8 +575,9 @@ func setupUI() {
 	label("전체 화면 해상도", 30, 675, 135, 24)
 	combo(idResolution, 166, 672, fullscreenResolutions)
 	label("H  ·  SHORTCUTS", 412, 675, 195, 24)
-	button(idVisualPage, 649, 78, 210, "트리와 조명")
-	button(idAudioPage, 869, 78, 207, "음악과 효과")
+	button(idVisualPage, 649, 78, 136, "트리와 조명")
+	button(idAudioPage, 795, 78, 136, "음악과 효과")
+	button(idCouplePage, 941, 78, 136, "커플 기념일")
 	buildPage = 1
 	label("테마", 649, 128, 140, 22)
 	combo(idTheme, 805, 125, themes)
@@ -615,6 +630,8 @@ func setupUI() {
 	check(idMulti, 869, 531, "모든 모니터")
 	check(idPhysics, 649, 567, "바람과 눈 쌓임")
 	label("무음 상태에서는 기본 애니메이션이 재생돼요.", 649, 611, 427, 24)
+	buildPage = 3
+	setupCouplePage()
 	buildPage = 0
 	button(idSave, 649, 655, 101, "저장")
 	button(idReset, 757, 655, 100, "초기화")
@@ -947,12 +964,14 @@ func mainProc(h, m, a, b uintptr) uintptr {
 		if uiUpdating {
 			return 0
 		}
-		if (high(a) == 1 && (low(a) == idTheme || low(a) == idDir || low(a) == idAudioPreset || low(a) == idCodeStyle || low(a) == idResolution)) || (high(a) == 0x300 && low(a) == idMessage) {
+		id, notification := low(a), high(a)
+		if (notification == 1 && (id == idTheme || id == idDir || id == idAudioPreset || id == idCodeStyle || id == idResolution)) ||
+			(notification == 0x300 && (id == idMessage || id == idCoupleFirst || id == idCoupleSecond || id == idCoupleDate)) {
 			uiRead()
 			return 0
 		}
-		if high(a) == 0 && (toggleIDs[low(a)] || (low(a) >= 130 && low(a) <= 148)) {
-			command(low(a))
+		if notification == 0 && (toggleIDs[id] || (id >= 130 && id <= 148) || id == idCouplePage) {
+			command(id)
 		}
 		return 0
 	case wmClose:
@@ -1071,6 +1090,9 @@ loop:
 			if txt(audioStatus) != status {
 				set(audioStatus, status)
 			}
+			if currentPage == 3 {
+				updateCoupleStatus()
+			}
 			if !lastSaved.IsZero() && time.Since(lastSaved) > 2*time.Second {
 				set(controls[idSave], "저장")
 				lastSaved = time.Time{}
@@ -1114,7 +1136,7 @@ func drawControl(d *drawItem) {
 	call(g, "SetBkMode", dc, 1)
 	fg := uint32(0xE9F0ED)
 	bg := uint32(0x2B3B41)
-	active := id == idFull || id == idSave || (id == idVisualPage && currentPage == 1) || (id == idAudioPage && currentPage == 2)
+	active := id == idFull || id == idSave || (id == idVisualPage && currentPage == 1) || (id == idAudioPage && currentPage == 2) || (id == idCouplePage && currentPage == 3)
 	if toggleIDs[id] {
 		on := toggleState[id]
 		tr := rect{r.L + int32(sc(2)), r.T + int32(sc(7)), r.L + int32(sc(38)), r.B - int32(sc(7))}

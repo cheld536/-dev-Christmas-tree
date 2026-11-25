@@ -2,7 +2,17 @@
 
 Windows용 3D ASCII 크리스마스 트리입니다. 색과 회전, 눈, 코드 장식을 바꾸고, v2에서는 시스템 음악에 반응하는 트리를 전체 화면이나 화면 보호기로 즐길 수 있습니다.
 
-**Windows 10/11 x64 대상 · 최신 정식 릴리스 v2.2.0 · [v2.3.0 프리릴리스](https://github.com/cheld536/-dev-Christmas-tree/releases/tag/v2.3.0)**
+**Windows 10/11 x64 대상 · 최신 정식 릴리스 v2.2.0 · [v2.3.0 프리릴리스](https://github.com/cheld536/-dev-Christmas-tree/releases/tag/v2.3.0) · 개발 빌드 v2.4.0**
+
+### 커플 기념일 (v2.4 개발 빌드)
+
+1. 설정 창 오른쪽 위의 **커플 기념일** 탭을 엽니다.
+2. 두 이름과 시작일을 `YYYY-MM-DD` 형식으로 입력하고 **커플 기념일 표시**를 켭니다.
+3. **저장**을 누릅니다. 미리보기와 F11 전체 화면의 트리 아래에 `지우 ♥️ 하늘  D+100일`과 같은 형식으로 표시됩니다.
+
+시작일은 `D+1일`입니다. 카운터를 끄면 개발자 문구가 다시 표시됩니다. 이름과 날짜는 이 PC의 앱 설정에 저장하며, 시각 프리셋 내보내기에서는 제외합니다.
+
+![커플 기념일 탭과 트리 아래 D+100일 표시가 보이는 v2.4 설정 화면](docs/images/couple-v2.4.png)
 
 ### v2.3 프리릴리스
 
@@ -118,7 +128,7 @@ Windows에서 Go 1.23 이상으로 아래 명령을 실행합니다. 외부 Go �
 .\build.ps1
 ```
 
-현재 개발 소스의 빌드 결과는 `dist/DeveloperChristmasTree_v2.3_Setup.exe`와 `dist/v2.3.0-SHA256SUMS.txt`입니다. 설치기는 먼저 빌드한 `setup/app.exe`를 포함합니다. Windows 아이콘 리소스는 빌드 시 생성됩니다. Python 테스트는 `legacy\python`에서 `py -3.13 -m unittest -v test_app`로 실행합니다.
+현재 개발 소스의 빌드 결과는 `dist/DeveloperChristmasTree_v2.4_Setup.exe`와 `dist/v2.4.0-SHA256SUMS.txt`입니다. 설치기는 먼저 빌드한 `setup/app.exe`를 포함합니다. Windows 아이콘 리소스는 빌드 시 생성됩니다. Python 테스트는 `legacy\python`에서 `py -3.13 -m unittest -v test_app`로 실행합니다.
 
 개발 버전은 [VERSION](internal/buildinfo/VERSION)에서 관리합니다. 앱, 설치 창, 설치 정보, 기본 파일명과 검사값 파일명이 이 버전을 사용합니다. 릴리스 워크플로는 태그의 버전을 빌드에 전달합니다.
 

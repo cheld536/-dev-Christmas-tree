@@ -47,17 +47,23 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PYTHONUTF8: '1'
         run: |
-          $legacy = Join-Path $env:RUNNER_TEMP 'DeveloperChristmasTree_v2.2_Setup.exe'
-          gh release download v2.2.0 --repo cheld536/-dev-Christmas-tree --pattern DeveloperChristmasTree_v2.2_Setup.exe --output $legacy
-          if ($LASTEXITCODE -ne 0) { throw 'v2.2 덮어쓰기 검증용 설치 파일을 받지 못했습니다.' }
-          $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $legacy).Hash.ToLowerInvariant()
-          if ("$hash  DeveloperChristmasTree_v2.2_Setup.exe" -cnotin (Get-Content -LiteralPath docs/release-checksums.txt)) {
-            throw 'v2.2 설치 파일의 SHA256이 일치하지 않습니다.'
+          function Get-UpgradeInstaller($tag) {
+            $name = "DeveloperChristmasTree_${tag}_Setup.exe"
+            $path = Join-Path $env:RUNNER_TEMP $name
+            gh release download "$tag.0" --repo cheld536/-dev-Christmas-tree --pattern $name --output $path
+            if ($LASTEXITCODE -ne 0) { throw "$tag 덮어쓰기 검증용 설치 파일을 받지 못했습니다." }
+            $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $path).Hash.ToLowerInvariant()
+            if ("$hash  $name" -cnotin (Get-Content -LiteralPath docs/release-checksums.txt)) {
+              throw "$tag 설치 파일의 SHA256이 일치하지 않습니다."
+            }
+            return $path
           }
+          $legacy = Get-UpgradeInstaller 'v2.2'
+          $previous = Get-UpgradeInstaller 'v2.3'
           $installer = Get-ChildItem -Path dist/*_Setup.exe | Select-Object -First 1
           $sum = Get-ChildItem -Path dist/v*-SHA256SUMS.txt | Select-Object -First 1
           $version = $sum.Name -replace '^v|\-SHA256SUMS\.txt$', ''
-          python scripts/windows_smoke.py $installer.FullName --app setup/app.exe --legacy $legacy --version $version
+          python scripts/windows_smoke.py $installer.FullName --app setup/app.exe --legacy $legacy --previous $previous --version $version
           if ($LASTEXITCODE -ne 0) { throw 'Windows 실행 검증에 실패했습니다.' }
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
