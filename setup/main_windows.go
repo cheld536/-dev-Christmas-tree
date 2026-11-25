@@ -99,7 +99,7 @@ type prior struct {
 	SystemActive, HasSystemActive                  bool
 }
 
-func install(dir, menu string, registerSaver bool, progress func(string)) (failure error) {
+func install(dir, menu string, registerSaver, desktopLink bool, progress func(string)) (failure error) {
 	if e := os.MkdirAll(dir, 0755); e != nil {
 		return e
 	}
@@ -142,8 +142,19 @@ func install(dir, menu string, registerSaver bool, progress func(string)) (failu
 		}
 	}
 	progress("시작 메뉴와 설치된 앱에 등록하는 중…")
-	if e := journal.changeFile(shortcut, func() error { return installShortcut(shortcut, app) }); e != nil {
+	if e := journal.changeFile(shortcut, func() error { return installShortcut(shortcut, app, true) }); e != nil {
 		return fmt.Errorf("시작 메뉴 바로가기를 만들 수 없습니다.\n%w", e)
+	}
+	var desktopPath string
+	if desktopLink {
+		folder, e := desktopDirectory()
+		if e != nil {
+			return fmt.Errorf("Windows 바탕 화면 폴더를 확인할 수 없습니다.\n%w", e)
+		}
+		desktopPath = filepath.Join(folder, "Developer Christmas Tree.lnk")
+		if e := journal.desktopShortcut(desktopPath, app); e != nil {
+			return e
+		}
 	}
 	if e := journal.saveUninstallKey(filepath.Join(export, "previous.reg")); e != nil {
 		return e
@@ -155,6 +166,11 @@ func install(dir, menu string, registerSaver bool, progress func(string)) (failu
 	}
 	for _, name := range []string{"NoModify", "NoRepair"} {
 		if e := reg("add", uninstallKey, "/v", name, "/t", "REG_DWORD", "/d", "1", "/f"); e != nil {
+			return e
+		}
+	}
+	if desktopPath != "" {
+		if e := regSet(uninstallKey, "DesktopShortcut", desktopPath); e != nil {
 			return e
 		}
 	}
@@ -214,6 +230,13 @@ func uninstall(dir, menu string) {
 	}
 	os.Remove(filepath.Join(menu, "Developer Christmas Tree.lnk"))
 	os.Remove(menu)
+	if path, ok := regRead(uninstallKey, "DesktopShortcut"); ok {
+		if folder, err := desktopDirectory(); err == nil && strings.EqualFold(path, filepath.Join(folder, "Developer Christmas Tree.lnk")) {
+			if target, err := shortcutTarget(path); err == nil && strings.EqualFold(target, filepath.Join(dir, "DeveloperChristmasTree.exe")) {
+				os.Remove(path)
+			}
+		}
+	}
 	reg("delete", uninstallKey, "/f")
 	if msg("저장한 설정도 지울까요?\n\n직접 내보낸 프리셋 파일은 그대로 남습니다.", 0x24) == 6 {
 		if e := os.Remove(filepath.Join(dir, "settings.json")); e != nil && !os.IsNotExist(e) {

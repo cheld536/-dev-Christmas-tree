@@ -143,6 +143,9 @@ def wizard(setup, env, version, complete=False, saver=False, fail=False):
         hwnd = window(process, "DCTSetup")
         assert version not in text(hwnd)
         assert text(USER32.GetDlgItem(hwnd, 104)) == "v" + version
+        desktop_option = USER32.GetDlgItem(hwnd, 105)
+        assert text(desktop_option) == "바탕 화면에 바로가기 만들기"
+        assert USER32.SendMessageW(desktop_option, 0xF0, 0, 0) == 1
         primary = USER32.GetDlgItem(hwnd, 101)
         assert text(primary) == "설치"
         if complete:
@@ -259,6 +262,8 @@ def verify_setup(setup, app, ui_only, version, legacy):
             assert scr.read_bytes() == installed_app.read_bytes()
             assert SHELL.ExtractIconExW(str(scr), -1, None, None, 0) > 0
             assert registry(UNINSTALL, "DisplayVersion")[0] == version
+            shortcut = Path(registry(UNINSTALL, "DesktopShortcut")[0])
+            assert shortcut.name == "Developer Christmas Tree.lnk" and shortcut.is_file()
             assert Path(registry(DESKTOP, "SCRNSAVE.EXE")[0]) == scr
             assert registry(DESKTOP, "ScreenSaverIsSecure") == desktop["ScreenSaverIsSecure"]
             print("설치, 버전 등록, 화면 보호기 등록 통과", flush=True)
@@ -267,7 +272,7 @@ def verify_setup(setup, app, ui_only, version, legacy):
             uninstaller = destination / "Uninstall.exe"
             if uninstaller.exists():
                 uninstall(uninstaller, env)
-        assert config.exists() and not installed_app.exists() and not scr.exists()
+        assert config.exists() and not installed_app.exists() and not scr.exists() and not shortcut.exists()
         assert registry(UNINSTALL, "InstallLocation") is None
         assert desktop_values() == desktop
         print("제거, 앱 설정 유지, 기존 화면 보호기 값 복원 통과", flush=True)

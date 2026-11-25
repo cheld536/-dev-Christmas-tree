@@ -2,13 +2,60 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"syscall"
 	"unsafe"
 )
+
+func desktopDirectory() (string, error) {
+	folder := syscall.GUID{Data1: 0xB4BFCC3A, Data2: 0xDB2C, Data3: 0x424C, Data4: [8]byte{0xB0, 0x29, 0x7F, 0xE9, 0x9A, 0x87, 0xC6, 0x41}}
+	var path *uint16
+	hr := invoke(shell, "SHGetKnownFolderPath", uintptr(unsafe.Pointer(&folder)), 0, 0, uintptr(unsafe.Pointer(&path)))
+	if path != nil {
+		defer invoke(syscall.NewLazyDLL("ole32.dll"), "CoTaskMemFree", uintptr(unsafe.Pointer(path)))
+	}
+	if int32(hr) < 0 || path == nil {
+		return "", fmt.Errorf("Windows 결과 코드 0x%08X", uint32(hr))
+	}
+	var length int
+	for *(*uint16)(unsafe.Add(unsafe.Pointer(path), 2*length)) != 0 {
+		length++
+	}
+	return syscall.UTF16ToString(unsafe.Slice(path, length)), nil
+}
+
+func shortcutTarget(path string) (string, error) {
+	if _, err := os.Stat(path); err != nil {
+		return "", err
+	}
+	cmd := exec.Command("powershell.exe", "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", `
+        $ErrorActionPreference = 'Stop'
+        [Console]::OutputEncoding = [Text.Encoding]::UTF8
+        $shell = New-Object -ComObject WScript.Shell
+        $shell.CreateShortcut($env:DCT_LINK).TargetPath
+    `)
+	cmd.Env = append(os.Environ(), "DCT_LINK="+path)
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: 0x08000000}
+	value, err := cmd.Output()
+	return strings.TrimRight(string(value), "\r\n"), err
+}
+
+func (j *installJournal) desktopShortcut(path, app string) error {
+	target, err := shortcutTarget(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return j.changeFile(path, func() error { return installShortcut(path, app, false) })
+	}
+	if err != nil || !strings.EqualFold(target, app) {
+		return errors.New("바탕 화면에 같은 이름의 다른 바로가기가 있습니다. 바로가기 옵션을 끄거나 기존 바로가기의 이름을 변경하세요.")
+	}
+	return nil
+}
 
 type installJournal []func() error
 
@@ -46,7 +93,7 @@ func (j *installJournal) write(path string, data []byte) error {
 	return j.changeFile(path, func() error { return copyFile(path, data) })
 }
 
-func installShortcut(path, app string) error {
+func installShortcut(path, app string, overwrite bool) error {
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
@@ -60,7 +107,14 @@ func installShortcut(path, app string) error {
 	if err := link(linkPath, app, ""); err != nil {
 		return err
 	}
-	return os.Rename(linkPath, path)
+	if overwrite {
+		return os.Rename(linkPath, path)
+	}
+	result, _, err := kernel.NewProc("MoveFileW").Call(uintptr(unsafe.Pointer(str(linkPath))), uintptr(unsafe.Pointer(str(path))))
+	if result == 0 {
+		return err
+	}
+	return nil
 }
 
 func uninstallKeyExists() (bool, error) {

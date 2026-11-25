@@ -22,6 +22,7 @@ const (
 	setupSaver   = 102
 	setupClose   = 103
 	setupVersion = 104
+	setupDesktop = 105
 	setupUpdate  = 0x8001
 )
 
@@ -71,6 +72,7 @@ type wizard struct {
 	hwnd, instance, background, panel uintptr
 	kicker, versionLabel              uintptr
 	heading, detail, status, option   uintptr
+	desktopOption                     uintptr
 	primary, close                    uintptr
 	font, title                       uintptr
 	dir, menu                         string
@@ -159,6 +161,8 @@ func setupWindow(dir, menu string) {
 	w.heading = w.control("STATIC", "Developer Christmas Tree", 0, 0)
 	w.detail = w.control("STATIC", fmt.Sprintf("설치 위치\r\n%s\r\n\r\n기존 트리 설정은 유지됩니다.", dir), 0, 0)
 	w.option = w.control("BUTTON", "Windows 화면 보호기로 사용", 0x10003, setupSaver)
+	w.desktopOption = w.control("BUTTON", "바탕 화면에 바로가기 만들기", 0x10003, setupDesktop)
+	invoke(u, "SendMessageW", w.desktopOption, 0xF1, 1, 0)
 	w.status = w.control("STATIC", "", 0, 0)
 	w.primary = w.control("BUTTON", "설치", 0x1000B, setupInstall)
 	w.close = w.control("BUTTON", "취소", 0x1000B, setupClose)
@@ -214,8 +218,9 @@ func (w *wizard) layout() {
 	move(w.versionLabel, w.font, 551, 26, 99, 25)
 	move(w.heading, w.title, 257, 57, 405, 43)
 	move(w.detail, w.font, 257, 115, 395, 107)
-	move(w.option, w.font, 255, 226, 395, 30)
-	move(w.status, w.font, 257, 261, 395, 50)
+	move(w.option, w.font, 255, 216, 395, 29)
+	move(w.desktopOption, w.font, 255, 246, 395, 29)
+	move(w.status, w.font, 257, 279, 395, 34)
 	move(w.primary, w.font, 447, 315, 96, 36)
 	move(w.close, w.font, 554, 315, 96, 36)
 	invoke(painter, "DeleteObject", oldFont)
@@ -333,7 +338,8 @@ func setupProc(h, message, a, b uintptr) uintptr {
 func (w *wizard) start() {
 	w.active = true
 	register := invoke(u, "SendMessageW", w.option, 0xF0, 0, 0) == 1
-	for _, h := range []uintptr{w.primary, w.close, w.option} {
+	desktopLink := invoke(u, "SendMessageW", w.desktopOption, 0xF0, 0, 0) == 1
+	for _, h := range []uintptr{w.primary, w.close, w.option, w.desktopOption} {
 		invoke(u, "EnableWindow", h, 0)
 	}
 	writeWindow(w.status, "설치를 준비하는 중…")
@@ -342,7 +348,7 @@ func (w *wizard) start() {
 			w.updates <- result
 			invoke(u, "PostMessageW", w.hwnd, setupUpdate, 0, 0)
 		}
-		err := install(w.dir, w.menu, register, func(step string) { send(setupResult{progress: step}) })
+		err := install(w.dir, w.menu, register, desktopLink, func(step string) { send(setupResult{progress: step}) })
 		send(setupResult{err: err})
 	}()
 }
@@ -362,6 +368,7 @@ func (w *wizard) update(result setupResult) {
 		writeWindow(w.status, "")
 		writeWindow(w.primary, "다시 시도")
 		invoke(u, "EnableWindow", w.option, 1)
+		invoke(u, "EnableWindow", w.desktopOption, 1)
 	} else {
 		w.complete = true
 		writeWindow(w.heading, "설치가 끝났어요")
@@ -369,6 +376,7 @@ func (w *wizard) update(result setupResult) {
 		writeWindow(w.status, "")
 		writeWindow(w.primary, "실행")
 		invoke(u, "ShowWindow", w.option, 0)
+		invoke(u, "ShowWindow", w.desktopOption, 0)
 	}
 	invoke(u, "SetFocus", w.primary)
 }
