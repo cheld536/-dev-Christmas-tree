@@ -158,6 +158,7 @@ func (s *surface) draw(force bool) {
 	rows = clamp(rows, 1, 100)
 	sceneCfg := cfg
 	sceneCfg.Spectrum = false
+	sceneCfg.Message = ""
 	f := audioFrame(cols, rows, now.Sub(s.begin).Seconds(), s.angle, audioState, sceneCfg, currentStats, false)
 	ox := (ww - cols*cw) / 2
 	oy := (treeH - rows*ch) / 2

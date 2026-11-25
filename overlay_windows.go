@@ -184,7 +184,7 @@ func (s *surface) drawOverlay(ww, hh, sceneH, treeH int, couple coupleDisplay) {
 		if isFull {
 			event = footerEvent
 		}
-		code, comment := developerCaption(now, cfg.Messages, cfg.Countdown, isFull && paused, event, footerUntil)
+		code, comment := developerCaption(now, now.Sub(s.begin), cfg, isFull && paused, event, footerUntil)
 		y := treeH
 		drawLine := func(font uintptr, text string, color uint32) {
 			textAt(dc, font, rect{int32(pad), int32(y), int32(ww - pad), int32(y + line)}, text, color, 1)
@@ -203,6 +203,8 @@ func (s *surface) drawOverlay(ww, hh, sceneH, treeH int, couple coupleDisplay) {
 			}
 			if comment != "" && ww >= 25*scale {
 				drawLine(s.uiFont, code+"  # "+comment, 0x69E6FF)
+			} else if strings.TrimSpace(cfg.Message) != "" {
+				drawLine(s.uiFont, code, 0x69E6FF)
 			} else {
 				drawLine(s.uiCode, code, 0x69E6FF)
 			}

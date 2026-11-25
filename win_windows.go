@@ -612,7 +612,7 @@ func setupUI() {
 	check(idBloom, 869, 502, "빛 번짐")
 	check(idMatrix, 649, 538, "코드 비")
 	check(idCount, 869, 538, "크리스마스 D-Day")
-	label("나만의 문구 (선택)", 649, 580, 400, 22)
+	label("나만의 문구 (비워 두면 기본 인사말)", 649, 580, 427, 22)
 	h := child("EDIT", "", wsTab|0x80, 649, 608, 427, 32, idMessage)
 	send(h, 0xc5, 100, 0)
 	send(h, 0xd3, 1, uintptr(sc(10)))

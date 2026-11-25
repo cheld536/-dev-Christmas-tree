@@ -23,10 +23,39 @@ func TestDeveloperCaption(t *testing.T) {
 		{"hidden", christmas, false, true, true, captionSnow, "", ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			code, comment := developerCaption(tc.now, tc.enabled, tc.countdown, tc.paused, tc.event, christmas.Add(time.Second))
+			settings := Settings{Messages: tc.enabled, Countdown: tc.countdown}
+			code, comment := developerCaption(tc.now, 0, settings, tc.paused, tc.event, christmas.Add(time.Second))
 			if code != tc.code || comment != tc.comment {
 				t.Fatalf("문구 = (%q, %q), 기댓값 = (%q, %q)", code, comment, tc.code, tc.comment)
 			}
 		})
+	}
+}
+
+func TestDefaultAndCustomDeveloperCaptions(t *testing.T) {
+	now := time.Date(2026, time.November, 26, 0, 0, 0, 0, time.Local)
+	settings := Settings{Messages: true, Message: " \t "}
+	for _, tc := range []struct {
+		elapsed time.Duration
+		want    string
+	}{
+		{0, "while True: spread_joy()"},
+		{3*time.Second - time.Millisecond, "while True: spread_joy()"},
+		{3 * time.Second, `git commit -m "Christmas"`},
+		{6 * time.Second, `print("Hello, Christmas!")`},
+		{9 * time.Second, "404: bugs not found"},
+		{12 * time.Second, "while True: spread_joy()"},
+	} {
+		if got, _ := developerCaption(now, tc.elapsed, settings, false, captionNone, time.Time{}); got != tc.want {
+			t.Fatalf("%v 이후 기본 문구 = %q, 기댓값 = %q", tc.elapsed, got, tc.want)
+		}
+	}
+	settings.Message = "  우리만의 크리스마스  "
+	if got, _ := developerCaption(now, 6*time.Second, settings, true, captionSnow, now.Add(time.Second)); got != "우리만의 크리스마스" {
+		t.Fatalf("사용자 문구 = %q", got)
+	}
+	settings.Messages = false
+	if got, _ := developerCaption(now, 6*time.Second, settings, false, captionNone, time.Time{}); got != "" {
+		t.Fatalf("인사말을 끈 상태에서 문구 표시 = %q", got)
 	}
 }
