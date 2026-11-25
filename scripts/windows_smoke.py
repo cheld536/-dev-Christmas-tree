@@ -1,7 +1,7 @@
 import argparse
 import ctypes
 from ctypes import wintypes
-from datetime import date
+from datetime import date, timedelta
 import json
 import os
 from pathlib import Path
@@ -133,6 +133,29 @@ def verify_app(app, env, config, version):
         wait(lambda: "오늘이나 이전 날짜" in text(fields[167]), "미래 시작일 안내")
         today = date.today().isoformat()
         set_text(fields[166], today)
+        calendar = USER32.GetDlgItem(hwnd, 169)
+        assert text(USER32.GetDlgItem(hwnd, 168)) == "달력에서 선택"
+        assert not USER32.IsWindowVisible(calendar)
+        command(hwnd, 168)
+        wait(lambda: USER32.IsWindowVisible(calendar), "시작일 달력 열기")
+        post(calendar, 0x100, 0x25)
+        post(calendar, 0x100, 0x1B)
+        wait(lambda: not USER32.IsWindowVisible(calendar), "달력 취소")
+        assert text(fields[166]) == today
+        command(hwnd, 168)
+        wait(lambda: USER32.IsWindowVisible(calendar), "시작일 달력 다시 열기")
+        post(calendar, 0x100, 0x25)
+        post(calendar, 0x100, 0x0D)
+        yesterday = (date.today() - timedelta(days=1)).isoformat()
+        wait(lambda: not USER32.IsWindowVisible(calendar) and text(fields[166]) == yesterday, "달력에서 전날 선택")
+        wait(lambda: text(fields[167]) == "지우 ♥️ 하늘  D+2일", "달력 선택 후 D+2일")
+        set_text(fields[166], "")
+        command(hwnd, 168)
+        wait(lambda: USER32.IsWindowVisible(calendar), "빈 시작일에서 달력 열기")
+        post(calendar, 0x100, 0x27)
+        post(calendar, 0x100, 0x0D)
+        wait(lambda: not USER32.IsWindowVisible(calendar) and text(fields[166]) == today, "달력에서 미래 날짜 제한 및 오늘 선택")
+        print("시작일 달력 열기, Esc 취소, 날짜 선택 및 D+ 계산 통과", flush=True)
         expected_caption = "지우 ♥️ 하늘  D+1일"
         wait(lambda: text(fields[167]) == expected_caption, "한글 이름과 D+1일")
         command(hwnd, 140)

@@ -14,6 +14,15 @@ Windows용 3D ASCII 크리스마스 트리입니다. 색과 회전, 눈, 코드 
 
 시작일은 `D+1일`입니다. 카운터를 끄면 개발자 문구가 다시 표시됩니다. 이름과 날짜는 이 PC의 앱 설정에 저장하며, 시각 프리셋 내보내기에서는 제외합니다.
 
+v2.4.1 개발 빌드에서는 시작일 옆 **달력에서 선택**을 누르고 날짜를 고를 수 있습니다. 키보드로는 방향키로 이동하고 **Enter**로 선택하거나 **Esc**로 닫습니다.
+
+<details>
+<summary>v2.4.1 달력 선택 화면</summary>
+
+![커플 기념일의 시작일 옆에 열린 월별 달력](docs/images/couple-calendar-v2.4.1.png)
+
+</details>
+
 ![커플 기념일 탭과 트리 아래 D+100일 표시가 보이는 v2.4 설정 화면](docs/images/couple-v2.4.png)
 
 ### 전체 화면 해상도
@@ -129,7 +138,7 @@ Windows에서 Go 1.23 이상으로 아래 명령을 실행합니다. 외부 Go �
 .\build.ps1
 ```
 
-현재 개발 소스의 빌드 결과는 `dist/DeveloperChristmasTree_v2.4_Setup.exe`와 `dist/v2.4.0-SHA256SUMS.txt`입니다. 설치기는 먼저 빌드한 `setup/app.exe`를 포함합니다. Windows 아이콘 리소스는 빌드 시 생성됩니다. Python 테스트는 `legacy\python`에서 `py -3.13 -m unittest -v test_app`로 실행합니다.
+현재 개발 소스의 빌드 결과는 `dist/DeveloperChristmasTree_v2.4.1_Setup.exe`와 `dist/v2.4.1-SHA256SUMS.txt`입니다. 설치기는 먼저 빌드한 `setup/app.exe`를 포함합니다. Windows 아이콘 리소스는 빌드 시 생성됩니다. Python 테스트는 `legacy\python`에서 `py -3.13 -m unittest -v test_app`로 실행합니다.
 
 개발 버전은 [VERSION](internal/buildinfo/VERSION)에서 관리합니다. 앱, 설치 창, 설치 정보, 기본 파일명과 검사값 파일명이 이 버전을 사용합니다. 릴리스 워크플로는 태그의 버전을 빌드에 전달합니다.
 

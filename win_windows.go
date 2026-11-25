@@ -77,9 +77,13 @@ func roundRegion(h uintptr, ww, hh, r int) {
 	}
 }
 func page(n int) {
+	setCoupleCalendarVisible(false)
 	currentPage = n
 	for i, hs := range pageChildren {
 		for _, h := range hs {
+			if h == controls[idCoupleCalendar] {
+				continue
+			}
 			v := uintptr(0)
 			if i == n {
 				v = 5
@@ -291,53 +295,57 @@ func setToggle(id int, v bool) {
 }
 
 const (
-	idTheme         = 101
-	idDir           = 102
-	idRenderer      = 103
-	idSpeed         = 110
-	idLight         = 111
-	idFPS           = 112
-	idSize          = 113
-	idSnow          = 120
-	idOrn           = 121
-	idMsg           = 122
-	idBloom         = 123
-	idMatrix        = 124
-	idCount         = 125
-	idMonitor       = 126
-	idMusic         = 127
-	idMulti         = 128
-	idPhysics       = 129
-	idCustom        = 130
-	idBG            = 131
-	idMessage       = 132
-	idSave          = 140
-	idReset         = 141
-	idTest          = 142
-	idExport        = 143
-	idImport        = 144
-	idWindows       = 145
-	idFull          = 146
-	idVisualPage    = 147
-	idAudioPage     = 148
-	idAudioPreset   = 150
-	idAudioGain     = 151
-	idBassGain      = 152
-	idMidGain       = 153
-	idHighGain      = 154
-	idSpectrum      = 155
-	idBPM           = 156
-	idSafe          = 157
-	idLowPower      = 158
-	idCodeStyle     = 159
-	idResolution    = 160
-	idVersion       = 161
-	idCouplePage    = 162
-	idCoupleEnabled = 163
-	idCoupleFirst   = 164
-	idCoupleSecond  = 165
-	idCoupleDate    = 166
-	idCoupleStatus  = 167
+	idTheme                = 101
+	idDir                  = 102
+	idRenderer             = 103
+	idSpeed                = 110
+	idLight                = 111
+	idFPS                  = 112
+	idSize                 = 113
+	idSnow                 = 120
+	idOrn                  = 121
+	idMsg                  = 122
+	idBloom                = 123
+	idMatrix               = 124
+	idCount                = 125
+	idMonitor              = 126
+	idMusic                = 127
+	idMulti                = 128
+	idPhysics              = 129
+	idCustom               = 130
+	idBG                   = 131
+	idMessage              = 132
+	idSave                 = 140
+	idReset                = 141
+	idTest                 = 142
+	idExport               = 143
+	idImport               = 144
+	idWindows              = 145
+	idFull                 = 146
+	idVisualPage           = 147
+	idAudioPage            = 148
+	idAudioPreset          = 150
+	idAudioGain            = 151
+	idBassGain             = 152
+	idMidGain              = 153
+	idHighGain             = 154
+	idSpectrum             = 155
+	idBPM                  = 156
+	idSafe                 = 157
+	idLowPower             = 158
+	idCodeStyle            = 159
+	idResolution           = 160
+	idVersion              = 161
+	idCouplePage           = 162
+	idCoupleEnabled        = 163
+	idCoupleFirst          = 164
+	idCoupleSecond         = 165
+	idCoupleDate           = 166
+	idCoupleStatus         = 167
+	idCoupleCalendarButton = 168
+	idCoupleCalendar       = 169
+	idCoupleDayHint        = 170
+	idCouplePrivacy        = 171
 )
 
 func selectCombo(id int, items []string, s string) {
@@ -510,6 +518,8 @@ func command(id int) {
 		page(2)
 	case idCouplePage:
 		page(3)
+	case idCoupleCalendarButton:
+		setCoupleCalendarVisible(!coupleCalendarOpen)
 	case idExport:
 		if p := fileDialog(true); p != "" {
 			preset := cfg
@@ -666,6 +676,7 @@ func openFull() {
 	}
 	uiRead()
 	fullScreen = true
+	setCoupleCalendarVisible(false)
 	paused = false
 	overlayVisible = false
 	footerEvent = captionNone
@@ -960,6 +971,10 @@ func mainProc(h, m, a, b uintptr) uintptr {
 		call(g, "SetTextColor", a, cr(0xE9F0ED))
 		call(g, "SetBkColor", a, cr(0x28373D))
 		return editBrush
+	case 0x004E:
+		if coupleCalendarNotify(b) {
+			return 0
+		}
 	case wmCommand:
 		if uiUpdating {
 			return 0
@@ -970,7 +985,7 @@ func mainProc(h, m, a, b uintptr) uintptr {
 			uiRead()
 			return 0
 		}
-		if notification == 0 && (toggleIDs[id] || (id >= 130 && id <= 148) || id == idCouplePage) {
+		if notification == 0 && (toggleIDs[id] || (id >= 130 && id <= 148) || id == idCouplePage || id == idCoupleCalendarButton) {
 			command(id)
 		}
 		return 0
@@ -1062,11 +1077,15 @@ loop:
 			if m.M == 0x12 {
 				break loop
 			}
+			if coupleCalendarKey(m) {
+				continue
+			}
 			if mainwin != 0 && len(saverWindows) == 0 && m.M == wmKey && m.W == 0x7A {
 				openFull()
 				continue
 			}
-			if mainwin != 0 && len(saverWindows) == 0 && call(u, "IsDialogMessageW", mainwin, ptr(&m)) != 0 {
+			calendarNavigation := coupleCalendarOpen && m.H == controls[idCoupleCalendar] && m.M == wmKey && m.W != 9
+			if mainwin != 0 && len(saverWindows) == 0 && !calendarNavigation && call(u, "IsDialogMessageW", mainwin, ptr(&m)) != 0 {
 				continue
 			}
 			call(u, "TranslateMessage", ptr(&m))

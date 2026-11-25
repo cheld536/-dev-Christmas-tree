@@ -70,5 +70,8 @@ func changeSettingsDPI(h uintptr, dpi int, suggested rect) {
 	x := clamp(int(suggested.L), int(work.L), max(int(work.L), int(work.R)-width))
 	y := clamp(int(suggested.T), int(work.T), max(int(work.T), int(work.B)-height))
 	call(u, "SetWindowPos", h, 0, signed(x), signed(y), uintptr(width), uintptr(height), 0x14)
+	if coupleCalendarOpen {
+		positionCoupleCalendar()
+	}
 	call(u, "RedrawWindow", h, 0, 0, 0x185)
 }
