@@ -5,7 +5,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
@@ -24,12 +23,13 @@ func TestDesktopShortcutCanBeRolledBack(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := journal.desktopShortcut(path, app); err != nil {
-		t.Fatal(err)
+		target, readErr := shortcutTarget(path)
+		t.Fatalf("같은 바로가기 다시 사용 실패. 대상 %q, 기댓값 %q, 조회 오류 %v, 설치 오류 %v", target, app, readErr, err)
 	}
 	if err := journal.desktopShortcut(path, filepath.Join(filepath.Dir(app), "other.exe")); err == nil {
 		t.Fatal("다른 대상을 가리키는 바로가기를 보호해야 합니다.")
 	}
-	if target, err := shortcutTarget(path); err != nil || !strings.EqualFold(target, app) {
+	if target, err := shortcutTarget(path); err != nil || !sameTarget(target, app) {
 		t.Fatalf("바로가기 대상 확인 실패. %q, %v", target, err)
 	}
 	if err := journal.rollback(); err != nil {

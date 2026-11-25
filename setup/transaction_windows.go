@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -36,14 +37,30 @@ func shortcutTarget(path string) (string, error) {
 	}
 	cmd := exec.Command("powershell.exe", "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", `
         $ErrorActionPreference = 'Stop'
-        [Console]::OutputEncoding = [Text.Encoding]::UTF8
         $shell = New-Object -ComObject WScript.Shell
-        $shell.CreateShortcut($env:DCT_LINK).TargetPath
+        $target = [string]$shell.CreateShortcut($env:DCT_LINK).TargetPath
+        [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($target))
     `)
 	cmd.Env = append(os.Environ(), "DCT_LINK="+path)
 	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: 0x08000000}
 	value, err := cmd.Output()
-	return strings.TrimRight(string(value), "\r\n"), err
+	if err != nil {
+		return "", err
+	}
+	decoded, err := base64.StdEncoding.DecodeString(strings.TrimSpace(strings.TrimPrefix(string(value), "\uFEFF")))
+	return string(decoded), err
+}
+
+func sameTarget(a, b string) bool {
+	if a == "" || b == "" {
+		return false
+	}
+	if strings.EqualFold(filepath.Clean(a), filepath.Clean(b)) {
+		return true
+	}
+	left, leftErr := os.Stat(a)
+	right, rightErr := os.Stat(b)
+	return leftErr == nil && rightErr == nil && os.SameFile(left, right)
 }
 
 func (j *installJournal) desktopShortcut(path, app string) error {
@@ -51,7 +68,10 @@ func (j *installJournal) desktopShortcut(path, app string) error {
 	if errors.Is(err, fs.ErrNotExist) {
 		return j.changeFile(path, func() error { return installShortcut(path, app, false) })
 	}
-	if err != nil || !strings.EqualFold(target, app) {
+	if err != nil {
+		return fmt.Errorf("기존 바탕 화면 바로가기 대상을 확인할 수 없습니다. %w", err)
+	}
+	if !sameTarget(target, app) {
 		return errors.New("바탕 화면에 같은 이름의 다른 바로가기가 있습니다. 바로가기 옵션을 끄거나 기존 바로가기의 이름을 변경하세요.")
 	}
 	return nil
@@ -98,12 +118,18 @@ func installShortcut(path, app string, overwrite bool) error {
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
-	stage, err := os.MkdirTemp(dir, ".shortcut-")
+	stage, err := os.CreateTemp(dir, ".shortcut-*.lnk")
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(stage)
-	linkPath := filepath.Join(stage, "Developer Christmas Tree.lnk")
+	linkPath := stage.Name()
+	defer os.Remove(linkPath)
+	if err := stage.Close(); err != nil {
+		return err
+	}
+	if err := os.Remove(linkPath); err != nil {
+		return err
+	}
 	if err := link(linkPath, app, ""); err != nil {
 		return err
 	}

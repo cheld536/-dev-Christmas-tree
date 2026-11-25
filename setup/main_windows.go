@@ -221,6 +221,14 @@ func uninstall(dir, menu string) {
 			return
 		}
 	}
+	var desktopPath string
+	if path, ok := regRead(uninstallKey, "DesktopShortcut"); ok {
+		if folder, err := desktopDirectory(); err == nil && strings.EqualFold(path, filepath.Join(folder, "Developer Christmas Tree.lnk")) {
+			if target, err := shortcutTarget(path); err == nil && sameTarget(target, filepath.Join(dir, "DeveloperChristmasTree.exe")) {
+				desktopPath = path
+			}
+		}
+	}
 	for _, n := range []string{"DeveloperChristmasTree.exe", "DeveloperChristmasTree.scr", "previous-saver.json"} {
 		e := os.Remove(filepath.Join(dir, n))
 		if e != nil && !os.IsNotExist(e) {
@@ -230,12 +238,8 @@ func uninstall(dir, menu string) {
 	}
 	os.Remove(filepath.Join(menu, "Developer Christmas Tree.lnk"))
 	os.Remove(menu)
-	if path, ok := regRead(uninstallKey, "DesktopShortcut"); ok {
-		if folder, err := desktopDirectory(); err == nil && strings.EqualFold(path, filepath.Join(folder, "Developer Christmas Tree.lnk")) {
-			if target, err := shortcutTarget(path); err == nil && strings.EqualFold(target, filepath.Join(dir, "DeveloperChristmasTree.exe")) {
-				os.Remove(path)
-			}
-		}
+	if desktopPath != "" {
+		os.Remove(desktopPath)
 	}
 	reg("delete", uninstallKey, "/f")
 	if msg("저장한 설정도 지울까요?\n\n직접 내보낸 프리셋 파일은 그대로 남습니다.", 0x24) == 6 {
