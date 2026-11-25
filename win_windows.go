@@ -330,6 +330,7 @@ const (
 	idLowPower    = 158
 	idCodeStyle   = 159
 	idResolution  = 160
+	idVersion     = 161
 )
 
 func selectCombo(id int, items []string, s string) {
@@ -529,8 +530,7 @@ func setupUI() {
 	uiScale = settingsScale(work, int(call(u, "GetDpiForSystem")))
 	x := int(work.L) + (int(work.R-work.L)-sc(1120))/2
 	y := int(work.T) + (int(work.B-work.T)-sc(770))/2
-	versionLabel := strings.TrimSuffix(version, ".0")
-	mainwin = window("DCTMain", "Christmas Tree  •  "+versionLabel, 0x06CA0000, 0, x, y, sc(1120), sc(770), 0, 0)
+	mainwin = window("DCTMain", "Developer Christmas Tree", 0x06CA0000, 0, x, y, sc(1120), sc(770), 0, 0)
 	if mainwin == 0 {
 		box(0, "설정 창을 열 수 없어요.", 0x10)
 		return
@@ -541,10 +541,11 @@ func setupUI() {
 	corner := int32(2)
 	call(dwm, "DwmSetWindowAttribute", mainwin, 33, ptr(&corner), 4)
 	makeSettingsFonts()
-	heading("Christmas Tree", 25, 13, 285, 37, titleFont)
-	label(versionLabel, 312, 25, 100, 23)
-	heading("미리보기", 30, 78, 210, 28, sectionFont)
-	audioStatus = child("STATIC", "", 0, 290, 82, 320, 22, 0)
+	heading("Christmas Tree", 25, 13, 260, 37, titleFont)
+	label("3D ASCII SCREENSAVER  /  LIVE CONFIGURATION", 303, 25, 515, 23)
+	child("STATIC", "v"+version, 2, 987, 25, 102, 23, idVersion)
+	heading("LIVE PREVIEW  ·  실시간 미리보기", 30, 78, 350, 28, sectionFont)
+	audioStatus = child("STATIC", "", 2, 390, 82, 220, 22, 0)
 	p := window("DCTRender", "", wsChild|wsVisible, 0, sc(previewX), sc(previewY), sc(previewW), sc(previewH), mainwin, 0)
 	if p != 0 {
 		settingControls[p] = &settingControl{x: previewX, y: previewY, width: previewW, height: previewH}
@@ -558,7 +559,7 @@ func setupUI() {
 	button(idWindows, 410, 628, 200, "Windows 화면 보호기")
 	label("전체 화면 해상도", 30, 675, 135, 24)
 	combo(idResolution, 166, 672, fullscreenResolutions)
-	label("H  ·  전체 화면 단축키", 412, 675, 195, 24)
+	label("H  ·  SHORTCUTS", 412, 675, 195, 24)
 	button(idVisualPage, 649, 78, 210, "트리와 조명")
 	button(idAudioPage, 869, 78, 207, "음악과 효과")
 	buildPage = 1

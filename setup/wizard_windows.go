@@ -21,6 +21,7 @@ const (
 	setupInstall = 101
 	setupSaver   = 102
 	setupClose   = 103
+	setupVersion = 104
 	setupUpdate  = 0x8001
 )
 
@@ -68,6 +69,7 @@ type setupResult struct {
 
 type wizard struct {
 	hwnd, instance, background, panel uintptr
+	kicker, versionLabel              uintptr
 	heading, detail, status, option   uintptr
 	primary, close                    uintptr
 	font, title                       uintptr
@@ -152,8 +154,10 @@ func setupWindow(dir, menu string) {
 	}()
 	dark := int32(1)
 	invoke(syscall.NewLazyDLL("dwmapi.dll"), "DwmSetWindowAttribute", w.hwnd, 20, uintptr(unsafe.Pointer(&dark)), 4)
+	w.kicker = w.control("STATIC", "SETUP  /  WINDOWS x64", 0, 0)
+	w.versionLabel = w.control("STATIC", "v"+version, 2, setupVersion)
 	w.heading = w.control("STATIC", "Developer Christmas Tree", 0, 0)
-	w.detail = w.control("STATIC", fmt.Sprintf("버전 %s  ·  Windows x64\r\n\r\n설치 위치\r\n%s\r\n\r\n기존 트리 설정은 유지됩니다.", version, dir), 0, 0)
+	w.detail = w.control("STATIC", fmt.Sprintf("설치 위치\r\n%s\r\n\r\n기존 트리 설정은 유지됩니다.", dir), 0, 0)
 	w.option = w.control("BUTTON", "Windows 화면 보호기로 사용", 0x10003, setupSaver)
 	w.status = w.control("STATIC", "", 0, 0)
 	w.primary = w.control("BUTTON", "설치", 0x1000B, setupInstall)
@@ -206,8 +210,10 @@ func (w *wizard) layout() {
 		invoke(u, "MoveWindow", h, x(left), y(top), x(sw), y(sh), 1)
 		invoke(u, "SendMessageW", h, 0x30, font, 1)
 	}
-	move(w.heading, w.title, 257, 32, 405, 43)
-	move(w.detail, w.font, 257, 83, 395, 145)
+	move(w.kicker, w.font, 257, 26, 290, 25)
+	move(w.versionLabel, w.font, 551, 26, 99, 25)
+	move(w.heading, w.title, 257, 57, 405, 43)
+	move(w.detail, w.font, 257, 115, 395, 107)
 	move(w.option, w.font, 255, 226, 395, 30)
 	move(w.status, w.font, 257, 261, 395, 50)
 	move(w.primary, w.font, 447, 315, 96, 36)

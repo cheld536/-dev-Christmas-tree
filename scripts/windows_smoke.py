@@ -113,7 +113,8 @@ def verify_app(app, env, config, version):
     process = start(app, env)
     try:
         hwnd = window(process, "DCTMain")
-        assert version.removesuffix(".0") in text(hwnd)
+        assert text(hwnd) == "Developer Christmas Tree"
+        assert text(USER32.GetDlgItem(hwnd, 161)) == "v" + version
         combo = USER32.GetDlgItem(hwnd, 160)
         assert combo and USER32.SendMessageW(combo, 0x146, 0, 0) == 3
         for index, label in [(1, "1080p"), (2, "4K")]:
@@ -136,10 +137,12 @@ def verify_app(app, env, config, version):
         stop(process)
 
 
-def wizard(setup, env, complete=False, saver=False, fail=False):
+def wizard(setup, env, version, complete=False, saver=False, fail=False):
     process = start(setup, env)
     try:
         hwnd = window(process, "DCTSetup")
+        assert version not in text(hwnd)
+        assert text(USER32.GetDlgItem(hwnd, 104)) == "v" + version
         primary = USER32.GetDlgItem(hwnd, 101)
         assert text(primary) == "설치"
         if complete:
@@ -232,7 +235,7 @@ def verify_setup(setup, app, ui_only, version, legacy):
         destination = local / "DeveloperChristmasTree"
         config = destination / "settings.json"
         baseline = registry(UNINSTALL, "InstallLocation")
-        wizard(setup, env)
+        wizard(setup, env, version)
         assert registry(UNINSTALL, "InstallLocation") == baseline and not destination.exists()
         print("설치 화면 표시 및 취소 통과", flush=True)
         if ui_only:
@@ -244,7 +247,7 @@ def verify_setup(setup, app, ui_only, version, legacy):
         invalid_menu = roaming / "Microsoft"
         invalid_menu.parent.mkdir(parents=True)
         invalid_menu.write_text("시작 메뉴 경로 실패 검증", encoding="utf-8")
-        wizard(setup, env, complete=True, fail=True)
+        wizard(setup, env, version, complete=True, fail=True)
         assert not list(destination.glob("*"))
         assert registry(UNINSTALL, "InstallLocation") is None and desktop_values() == desktop
         invalid_menu.unlink()
@@ -252,7 +255,7 @@ def verify_setup(setup, app, ui_only, version, legacy):
         installed_app = destination / "DeveloperChristmasTree.exe"
         scr = destination / "DeveloperChristmasTree.scr"
         try:
-            wizard(setup, env, complete=True, saver=True)
+            wizard(setup, env, version, complete=True, saver=True)
             assert scr.read_bytes() == installed_app.read_bytes()
             assert SHELL.ExtractIconExW(str(scr), -1, None, None, 0) > 0
             assert registry(UNINSTALL, "DisplayVersion")[0] == version
@@ -275,7 +278,7 @@ def verify_setup(setup, app, ui_only, version, legacy):
                 assert registry(UNINSTALL, "DisplayVersion")[0] == "2.2.0"
                 original = b'{"Theme":"Ice Blue","Message":"holiday","FPS":30}\n'
                 config.write_bytes(original)
-                wizard(setup, env, complete=True)
+                wizard(setup, env, version, complete=True)
                 assert registry(UNINSTALL, "DisplayVersion")[0] == version
                 assert config.read_bytes() == original
                 assert installed_app.read_bytes() == app.read_bytes()
