@@ -13,6 +13,7 @@ import winreg
 USER32 = ctypes.WinDLL("user32", use_last_error=True)
 ENUM = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
 USER32.EnumWindows.argtypes = [ENUM, wintypes.LPARAM]
+USER32.EnumChildWindows.argtypes = [wintypes.HWND, ENUM, wintypes.LPARAM]
 USER32.GetWindowThreadProcessId.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.DWORD)]
 USER32.GetClassNameW.argtypes = [wintypes.HWND, wintypes.LPWSTR, ctypes.c_int]
 USER32.IsWindowVisible.argtypes = [wintypes.HWND]
@@ -154,20 +155,43 @@ def wizard(setup, env, complete=False, saver=False, fail=False):
         stop(process)
 
 
-def dialog(process, response, require_settings=False):
-    hwnd = window(process, "#32770")
-    post(hwnd, 0x111, response)
-    wait(lambda: not USER32.IsWindow(hwnd) or process.poll() is not None, "제거 메시지 닫기")
-    if require_settings and process.poll() is not None:
-        raise AssertionError("설정 유지 옵션 표시 전 제거가 끝났습니다.")
+def dialog(process, expected, response):
+    last = ""
+
+    def find():
+        nonlocal last
+        for hwnd in visible_windows(process, "#32770"):
+            content = []
+
+            @ENUM
+            def read(child, _):
+                value = text(child)
+                if value:
+                    content.append(value)
+                return True
+
+            USER32.EnumChildWindows(hwnd, read, 0)
+            last = " ".join(content)
+            if expected in last and USER32.GetDlgItem(hwnd, response):
+                return hwnd
+            if "복원하지 못했어요" in last or "try uninstalling again" in last or "could not be completed" in last:
+                raise AssertionError(last)
+        return None
+
+    try:
+        hwnd = wait(find, expected, 18)
+        post(hwnd, 0x111, response)
+        wait(lambda: not USER32.IsWindow(hwnd) or process.poll() is not None, expected, 18)
+    except AssertionError as error:
+        raise AssertionError(f"{error}. 마지막 대화 상자: {last}") from error
 
 
 def uninstall(exe, env):
     process = start(exe, env, "/uninstall")
     try:
-        dialog(process, 6, True)
-        dialog(process, 7, True)
-        dialog(process, 1)
+        dialog(process, "Christmas Tree를 삭제할까요?", 6)
+        dialog(process, "저장한 설정도 지울까요?", 7)
+        dialog(process, "Christmas Tree를 삭제했어요.", 1)
         assert process.wait(timeout=15) == 0
         wait(lambda: not exe.exists(), "제거 프로그램 자체 삭제")
     finally:
@@ -177,9 +201,9 @@ def uninstall(exe, env):
 def install_legacy(setup, env):
     process = start(setup, env)
     try:
-        dialog(process, 6, True)
-        dialog(process, 7, True)
-        dialog(process, 7)
+        dialog(process, "Christmas Tree 2.2을 설치할까요?", 6)
+        dialog(process, "화면 보호기로 사용할까요?", 7)
+        dialog(process, "설치가 끝났어요.", 7)
         assert process.wait(timeout=15) == 0
     finally:
         stop(process)
