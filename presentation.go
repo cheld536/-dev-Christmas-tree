@@ -18,12 +18,14 @@ func fitFrame(srcW, srcH, dstW, dstH int) (width, height int) {
 	return dstH * srcW / srcH, dstH
 }
 
-func footerHeight(width, sceneHeight, lineHeight int, messages, fullscreen bool) int {
+func footerHeight(width, sceneHeight, lineHeight int, messages, fullscreen, couple bool) int {
 	if width < 200 || sceneHeight < 120 {
 		return 0
 	}
 	rows := 0
-	if messages {
+	if couple {
+		rows = 1
+	} else if messages {
 		rows = 1
 		if sceneHeight >= 200 && width >= 320 {
 			rows++

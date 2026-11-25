@@ -142,7 +142,11 @@ func (s *surface) draw(force bool) {
 		sceneH = hh - clamp(hh/6, 104, 168)
 	}
 	line := clamp(hh/45, 13, 38) + 6
-	treeH := sceneH - footerHeight(ww, sceneH, line, cfg.Messages, s.saver && fullScreen)
+	var couple coupleDisplay
+	if !s.saver || fullScreen {
+		couple, _ = coupleCaption(cfg.Couple, now)
+	}
+	treeH := sceneH - footerHeight(ww, sceneH, line, cfg.Messages, s.saver && fullScreen, couple.names != "")
 	size := clamp(treeH/52, 9, 46)
 	cw := int(math.Round(float64(size) * .62))
 	ch := int(math.Round(float64(size) * 1.18))
@@ -157,7 +161,7 @@ func (s *surface) draw(force bool) {
 	f := audioFrame(cols, rows, now.Sub(s.begin).Seconds(), s.angle, audioState, sceneCfg, currentStats, false)
 	ox := (ww - cols*cw) / 2
 	oy := (treeH - rows*ch) / 2
-	s.drawGDI(f, ww, hh, cw, ch, ox, oy, size, sceneH, treeH)
+	s.drawGDI(f, ww, hh, cw, ch, ox, oy, size, sceneH, treeH, couple)
 	if s.mem == 0 {
 		return
 	}
@@ -212,7 +216,7 @@ func (s *surface) drawGL(f Frame, ww, hh, cw, ch, ox, oy, size int) {
 	}
 	call(g, "SwapBuffers", s.dc)
 }
-func (s *surface) drawGDI(f Frame, ww, hh, cw, ch, ox, oy, size, sceneH, treeH int) {
+func (s *surface) drawGDI(f Frame, ww, hh, cw, ch, ox, oy, size, sceneH, treeH int, couple coupleDisplay) {
 	if s.mem == 0 || s.bw != ww || s.bh != hh {
 		if s.mem != 0 {
 			call(g, "SelectObject", s.mem, s.oldbmp)
@@ -267,7 +271,7 @@ func (s *surface) drawGDI(f Frame, ww, hh, cw, ch, ox, oy, size, sceneH, treeH i
 		call(g, "TextOutW", s.mem, uintptr(ox+v.X*cw), uintptr(oy+v.Y*ch), ptr(&chv), 1)
 	}
 	call(g, "SelectObject", s.mem, old)
-	s.drawOverlay(ww, hh, sceneH, treeH)
+	s.drawOverlay(ww, hh, sceneH, treeH, couple)
 }
 
 func effectiveFPS() int {
