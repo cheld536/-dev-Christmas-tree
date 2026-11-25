@@ -1,12 +1,10 @@
 package main
 
 import (
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"io/fs"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -29,26 +27,6 @@ func desktopDirectory() (string, error) {
 		length++
 	}
 	return syscall.UTF16ToString(unsafe.Slice(path, length)), nil
-}
-
-func shortcutTarget(path string) (string, error) {
-	if _, err := os.Stat(path); err != nil {
-		return "", err
-	}
-	cmd := exec.Command("powershell.exe", "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", `
-        $ErrorActionPreference = 'Stop'
-        $shell = New-Object -ComObject WScript.Shell
-        $target = [string]$shell.CreateShortcut($env:DCT_LINK).TargetPath
-        [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($target))
-    `)
-	cmd.Env = append(os.Environ(), "DCT_LINK="+path)
-	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: 0x08000000}
-	value, err := cmd.Output()
-	if err != nil {
-		return "", err
-	}
-	decoded, err := base64.StdEncoding.DecodeString(strings.TrimSpace(strings.TrimPrefix(string(value), "\uFEFF")))
-	return string(decoded), err
 }
 
 func sameTarget(a, b string) bool {
@@ -130,7 +108,7 @@ func installShortcut(path, app string, overwrite bool) error {
 	if err := os.Remove(linkPath); err != nil {
 		return err
 	}
-	if err := link(linkPath, app, ""); err != nil {
+	if err := link(linkPath, app); err != nil {
 		return err
 	}
 	if overwrite {

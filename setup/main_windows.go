@@ -82,15 +82,6 @@ func activate(value bool) {
 	}
 	u.NewProc("SystemParametersInfoW").Call(17, v, 0, 3)
 }
-func link(path, target, args string) error {
-	if e := os.MkdirAll(filepath.Dir(path), 0755); e != nil {
-		return e
-	}
-	c := exec.Command("powershell.exe", "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", `$ErrorActionPreference='Stop'; $w=New-Object -ComObject WScript.Shell; $s=$w.CreateShortcut($env:DCT_LINK); $s.TargetPath=$env:DCT_TARGET; $s.Arguments=$env:DCT_ARGS; $s.IconLocation=$env:DCT_TARGET+',0'; $s.WorkingDirectory=[IO.Path]::GetDirectoryName($env:DCT_TARGET); $s.Save()`)
-	c.Env = append(os.Environ(), "DCT_LINK="+path, "DCT_TARGET="+target, "DCT_ARGS="+args)
-	c.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: 0x08000000}
-	return c.Run()
-}
 
 type prior struct {
 	Path, Active, Timeout                          string
