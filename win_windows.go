@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -23,9 +24,11 @@ var shell = syscall.NewLazyDLL("shell32.dll")
 var procCache = map[string]*syscall.LazyProc{}
 var stringsKeep [128]*uint16
 var keepIndex int
-var lastUI time.Time
+var uiUpdating bool
+var toastText string
+var toastUntil time.Time
 var settingsPreview uintptr
-var previewGL bool
+
 var pointersKeep [2048]any
 var pointerIndex int
 var panelBrush, editBrush, cardBrush, titleFont, sectionFont uintptr
@@ -78,7 +81,7 @@ func page(n int) {
 		}
 	}
 	for _, id := range []int{idVisualPage, idAudioPage} {
-		call(u, "InvalidateRect", controls[id], 0, 1)
+		call(u, "InvalidateRect", controls[id], 0, 0)
 	}
 }
 
@@ -247,7 +250,7 @@ func combo(id, x, y int, items []string) {
 			s = []string{"시계 방향", "반시계 방향", "정지"}[i]
 		}
 		if id == idRenderer {
-			s = []string{"OpenGL (자동)", "GDI (호환 모드)"}[i]
+			s = []string{"OpenGL (자동)", "선명한 화면 (GDI)"}[i]
 		}
 		send(h, 0x143, 0, w(s))
 	}
@@ -263,7 +266,13 @@ func check(id, x, y int, s string) {
 	child("BUTTON", s, wsTab|0xB, x, y, 200, 31, id)
 }
 func button(id, x, y, ww int, s string) { child("BUTTON", s, wsTab|0xB, x, y, ww, 36, id) }
-func setToggle(id int, v bool)          { toggleState[id] = v; call(u, "InvalidateRect", controls[id], 0, 1) }
+func setToggle(id int, v bool) {
+	if toggleState[id] == v {
+		return
+	}
+	toggleState[id] = v
+	call(u, "InvalidateRect", controls[id], 0, 0)
+}
 
 const (
 	idTheme       = 101
@@ -304,6 +313,7 @@ const (
 	idBPM         = 156
 	idSafe        = 157
 	idLowPower    = 158
+	idCodeStyle   = 159
 )
 
 func selectCombo(id int, items []string, s string) {
@@ -322,9 +332,11 @@ func comboVal(id int, items []string) string {
 	return items[i]
 }
 func uiSet() {
+	uiUpdating = true
+	defer func() { uiUpdating = false }()
 	selectCombo(idTheme, themes, cfg.Theme)
 	selectCombo(idDir, directions, cfg.Direction)
-	selectCombo(idRenderer, renderers, cfg.Renderer)
+	selectCombo(idCodeStyle, codeThemes, codeThemes[cfg.CodeStyle])
 	selectCombo(idAudioPreset, audioPresets, cfg.AudioPreset)
 	for id, v := range map[int]int{idSpeed: cfg.Speed, idLight: cfg.LightSpeed, idFPS: cfg.FPS, idSize: cfg.Size, idAudioGain: cfg.AudioGain, idBassGain: cfg.BassGain, idMidGain: cfg.MidGain, idHighGain: cfg.HighGain} {
 		send(controls[id], 0x405, 1, uintptr(v))
@@ -343,7 +355,8 @@ func uiRead() {
 	}
 	cfg.Theme = comboVal(idTheme, themes)
 	cfg.Direction = comboVal(idDir, directions)
-	cfg.Renderer = comboVal(idRenderer, renderers)
+	cfg.Renderer = renderers[1]
+	cfg.CodeStyle = clamp(int(send(controls[idCodeStyle], 0x147, 0, 0)), 0, len(codeThemes)-1)
 	cfg.AudioPreset = comboVal(idAudioPreset, audioPresets)
 	for id, p := range map[int]*int{idSpeed: &cfg.Speed, idLight: &cfg.LightSpeed, idFPS: &cfg.FPS, idSize: &cfg.Size, idAudioGain: &cfg.AudioGain, idBassGain: &cfg.BassGain, idMidGain: &cfg.MidGain, idHighGain: &cfg.HighGain} {
 		*p = int(send(controls[id], 0x400, 0, 0))
@@ -492,6 +505,8 @@ var lastSaved time.Time
 const previewX, previewY, previewW, previewH = 30, 112, 580, 502
 
 func setupUI() {
+	uiUpdating = true
+	defer func() { uiUpdating = false }()
 	var work rect
 	call(u, "SystemParametersInfoW", 0x30, 0, ptr(&work), 0)
 	uiScale = math.Min(1, math.Min(float64(work.R-work.L-8)/1120, float64(work.B-work.T-8)/770))
@@ -500,7 +515,7 @@ func setupUI() {
 	}
 	x := int(work.L) + (int(work.R-work.L)-sc(1120))/2
 	y := int(work.T) + (int(work.B-work.T)-sc(770))/2
-	mainwin = window("DCTMain", "Christmas Tree  •  2.1", 0x02CA0000, 0, x, y, sc(1120), sc(770), 0, 0)
+	mainwin = window("DCTMain", "Christmas Tree  •  2.2", 0x06CA0000, 0, x, y, sc(1120), sc(770), 0, 0)
 	if mainwin == 0 {
 		box(0, "설정 창을 열 수 없어요.", 0x10)
 		return
@@ -510,22 +525,22 @@ func setupUI() {
 	call(dwm, "DwmSetWindowAttribute", mainwin, 20, ptr(&dark), 4)
 	corner := int32(2)
 	call(dwm, "DwmSetWindowAttribute", mainwin, 33, ptr(&corner), 4)
-	font = chooseFont("Segoe UI Variable Text", "Segoe UI", 16, 400)
+	font = chooseFont("Pretendard", "Segoe UI", 16, 400)
 	titleFont = chooseFont("Segoe UI Variable Display", "Segoe UI", 28, 600)
-	sectionFont = chooseFont("Segoe UI Variable Text", "Segoe UI", 19, 600)
+	sectionFont = chooseFont("Pretendard", "Segoe UI", 19, 600)
 	heading("Christmas Tree", 25, 13, 285, 37, titleFont)
-	label("2.1", 312, 25, 100, 23)
+	label("2.2", 312, 25, 100, 23)
 	heading("미리보기", 30, 78, 210, 28, sectionFont)
 	audioStatus = child("STATIC", "", 0, 290, 82, 320, 22, 0)
 	p := window("DCTRender", "", wsChild|wsVisible, 0, sc(previewX), sc(previewY), sc(previewW), sc(previewH), mainwin, 0)
 	roundRegion(p, previewW, previewH, 20)
 	addSurface(p, false)
 	settingsPreview = p
-	previewGL = wantsGL()
+
 	button(idFull, 30, 628, 180, "전체 화면   F11")
 	button(idTest, 220, 628, 180, "화면 보호기 미리보기")
 	button(idWindows, 410, 628, 200, "Windows 화면 보호기")
-	label("Esc  닫기     H  단축키 보기", 30, 675, 580, 24)
+	label("전체 화면에서 H를 누르면 단축키가 나와요.", 30, 675, 580, 24)
 	button(idVisualPage, 649, 78, 210, "트리와 조명")
 	button(idAudioPage, 869, 78, 207, "음악과 효과")
 	buildPage = 1
@@ -533,8 +548,8 @@ func setupUI() {
 	combo(idTheme, 805, 125, themes)
 	label("회전 방향", 649, 165, 140, 22)
 	combo(idDir, 805, 162, directions)
-	label("렌더링", 649, 202, 140, 22)
-	combo(idRenderer, 805, 199, renderers)
+	label("코드 스타일", 649, 202, 140, 22)
+	combo(idCodeStyle, 805, 199, codeThemes)
 	label("회전 속도", 649, 244, 140, 22)
 	slider(idSpeed, 805, 237, 0, 400)
 	label("조명 속도", 649, 279, 140, 22)
@@ -559,7 +574,7 @@ func setupUI() {
 	roundRegion(h, 427, 32, 12)
 	buildPage = 2
 	check(idMusic, 649, 125, "음악 반응")
-	label("재생 중인 소리를 사용해요. 마이크는 필요 없어요.", 649, 163, 427, 24)
+	label("PC에서 재생되는 소리에 반응해요.", 649, 163, 427, 24)
 	label("음악 스타일", 649, 202, 145, 22)
 	combo(idAudioPreset, 805, 199, audioPresets)
 	label("반응 강도", 649, 244, 140, 22)
@@ -572,7 +587,7 @@ func setupUI() {
 	slider(idHighGain, 805, 342, 0, 200)
 	label("저음·중음·고음은 '직접 설정'에서 적용돼요.", 649, 381, 427, 24)
 	heading("화면 옵션", 649, 425, 400, 26, sectionFont)
-	check(idSpectrum, 649, 459, "스펙트럼 링")
+	check(idSpectrum, 649, 459, "이퀄라이저")
 	check(idBPM, 869, 459, "BPM 표시")
 	check(idSafe, 649, 495, "빛 변화 줄이기")
 	check(idLowPower, 869, 495, "저전력 모드")
@@ -601,28 +616,6 @@ func wantsGL() bool {
 	}
 	return true
 }
-func refreshPreview() {
-	if settingsPreview == 0 || mainwin == 0 {
-		return
-	}
-	want := wantsGL()
-	if want == previewGL {
-		return
-	}
-	previewGL = want
-	old := settingsPreview
-	var a float64
-	if sf := surfaces[old]; sf != nil {
-		a = sf.angle
-	}
-	call(u, "DestroyWindow", old)
-	settingsPreview = window("DCTRender", "", wsChild|wsVisible, 0, sc(previewX), sc(previewY), sc(previewW), sc(previewH), mainwin, 0)
-	roundRegion(settingsPreview, previewW, previewH, 20)
-	addSurface(settingsPreview, false)
-	if sf := surfaces[settingsPreview]; sf != nil {
-		sf.angle = a
-	}
-}
 func addSurface(h uintptr, saver bool) {
 	if h == 0 {
 		return
@@ -642,6 +635,15 @@ func openFull() {
 	if len(saverWindows) == 0 {
 		fullScreen = false
 	}
+}
+
+// Explicit user shortcuts send standard Windows media keys to the active media session.
+func mediaKey(v uintptr) { call(u, "keybd_event", v, 0, 0, 0); call(u, "keybd_event", v, 0, 2, 0) }
+func onOff(name string, enabled bool) string {
+	if enabled {
+		return name + " 켜짐"
+	}
+	return name + " 꺼짐"
 }
 func fullKey(key uintptr) {
 	switch key {
@@ -673,6 +675,8 @@ func fullKey(key uintptr) {
 		cfg.Bloom = !cfg.Bloom
 	case 'H':
 		overlayVisible = !overlayVisible
+	case 'D':
+		cfg.CodeStyle = (cfg.CodeStyle + 1) % len(codeThemes)
 	case 'A':
 		cfg.Music = !cfg.Music
 	case 9:
@@ -686,6 +690,19 @@ func fullKey(key uintptr) {
 		}
 	case 'V':
 		cfg.Spectrum = !cfg.Spectrum
+	case 'Z', 'X', 'N':
+		if key == 'Z' {
+			mediaKey(0xB1)
+			toastText = "이전 곡"
+		} else if key == 'X' {
+			mediaKey(0xB3)
+			toastText = "재생 / 일시 정지"
+		} else {
+			mediaKey(0xB0)
+			toastText = "다음 곡"
+		}
+		toastUntil = time.Now().Add(1500 * time.Millisecond)
+		return
 	case 'G':
 		cfg.AudioGain = clamp(cfg.AudioGain+25, 0, 200)
 	case 'J':
@@ -694,6 +711,41 @@ func fullKey(key uintptr) {
 	if mainwin != 0 {
 		uiSet()
 	}
+	switch key {
+	case 0x20:
+		if paused {
+			toastText = "일시 정지"
+		} else {
+			toastText = "다시 재생"
+		}
+	case 0x26, 0x28:
+		toastText = fmt.Sprintf("회전 %.2f×", float64(cfg.Speed)/100)
+	case 'C':
+		toastText = cfg.Theme
+	case 'P':
+		toastText = cfg.AudioPreset
+	case 'G', 'J':
+		toastText = fmt.Sprintf("음악 반응 %d%%", cfg.AudioGain)
+	case 0x25, 0x27:
+		toastText = cfg.Direction
+	case 'D':
+		toastText = codeThemes[cfg.CodeStyle]
+	case 'S':
+		toastText = onOff("눈", cfg.Snow)
+	case 'M':
+		toastText = onOff("코드 비", cfg.Matrix)
+	case 'B':
+		toastText = onOff("빛 번짐", cfg.Bloom)
+	case 'A':
+		toastText = onOff("음악 반응", cfg.Music)
+	case 'V':
+		toastText = onOff("이퀄라이저", cfg.Spectrum)
+	case 9:
+		toastText = onOff("시스템 사용량", cfg.Monitor)
+	default:
+		return
+	}
+	toastUntil = time.Now().Add(1500 * time.Millisecond)
 }
 func stopSaver() {
 	for _, h := range saverWindows {
@@ -782,10 +834,7 @@ func renderProc(h, m, a, b uintptr) uintptr {
 					call(u, "MoveWindow", h, 0, 0, uintptr(r.R), uintptr(r.B), 1)
 				}
 			}
-			if mainwin != 0 && !fullScreen && time.Since(lastUI) > 100*time.Millisecond {
-				uiRead()
-				lastUI = time.Now()
-			}
+
 			updateExtras()
 			sf.draw(false)
 			if sf.saver && !previewOnly && !fullScreen && time.Now().After(exitAt) {
@@ -829,9 +878,13 @@ func renderProc(h, m, a, b uintptr) uintptr {
 }
 func mainProc(h, m, a, b uintptr) uintptr {
 	switch m {
+	case wmErase:
+		return 1
 	case wmPaint:
 		var p paint
 		call(u, "BeginPaint", h, ptr(&p))
+		r := client(h)
+		call(u, "FillRect", p.DC, ptr(&r), panelBrush)
 		rounded(p.DC, rect{int32(sc(16)), int32(sc(62)), int32(sc(624)), int32(sc(706))}, 24, 0x19252A)
 		rounded(p.DC, rect{int32(sc(634)), int32(sc(62)), int32(sc(1090)), int32(sc(706))}, 24, 0x19252A)
 		call(u, "EndPaint", h, ptr(&p))
@@ -857,6 +910,13 @@ func mainProc(h, m, a, b uintptr) uintptr {
 		call(g, "SetBkColor", a, cr(0x28373D))
 		return editBrush
 	case wmCommand:
+		if uiUpdating {
+			return 0
+		}
+		if (high(a) == 1 && (low(a) == idTheme || low(a) == idDir || low(a) == idAudioPreset || low(a) == idCodeStyle)) || (high(a) == 0x300 && low(a) == idMessage) {
+			uiRead()
+			return 0
+		}
 		if high(a) == 0 && (toggleIDs[low(a)] || (low(a) >= 130 && low(a) <= 148)) {
 			command(low(a))
 		}
@@ -881,7 +941,13 @@ func register(name string, cb uintptr, style uint32, brush uintptr) {
 func main() {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
-	call(u, "SetProcessDPIAware")
+	if proc := u.NewProc("SetProcessDpiAwarenessContext"); proc.Find() == nil {
+		if r, _, _ := proc.Call(signed(-4)); r == 0 {
+			call(u, "SetProcessDPIAware")
+		}
+	} else {
+		call(u, "SetProcessDPIAware")
+	}
 	inst = call(k, "GetModuleHandleW", 0)
 	syscall.NewLazyDLL("comctl32.dll").NewProc("InitCommonControls").Call()
 	panelBrush = call(g, "CreateSolidBrush", cr(0x101A1E))
@@ -892,6 +958,7 @@ func main() {
 	register("DCTRender", syscall.NewCallback(renderProc), 0x23, 0)
 	register("DCTSlider", syscall.NewCallback(sliderProc), 3, cardBrush)
 	cfg, _ = load(configPath())
+	cfg.Renderer = renderers[1]
 	arg := ""
 	if len(os.Args) > 1 {
 		arg = strings.ToLower(os.Args[1])
@@ -925,6 +992,9 @@ func main() {
 		}
 	}
 	go audioWorker()
+	ctx, cancelMedia := context.WithCancel(context.Background())
+	defer cancelMedia()
+	go mediaWorker(ctx)
 	var m msg
 	mm := syscall.NewLazyDLL("winmm.dll")
 	call(mm, "timeBeginPeriod", 1)
@@ -945,9 +1015,7 @@ loop:
 			call(u, "TranslateMessage", ptr(&m))
 			call(u, "DispatchMessageW", ptr(&m))
 		}
-		if len(saverWindows) == 0 {
-			refreshPreview()
-		}
+
 		if mainwin != 0 && time.Since(lastAudioStatus) > 250*time.Millisecond {
 			status := "음악 반응 꺼짐"
 			if cfg.Music {
@@ -955,9 +1023,12 @@ loop:
 				if audioState.Connected {
 					status = "소리 대기 중"
 					if audioState.Active {
-						status = "소리 감지됨"
+						status = "음악 반응 중"
 					}
 				}
+			}
+			if m := mediaSnapshot.Load(); cfg.Music && m != nil && m.Title != "" && m.Status == "Playing" {
+				status = "음악 재생 중"
 			}
 			if txt(audioStatus) != status {
 				set(audioStatus, status)
@@ -1053,17 +1124,22 @@ func drawControl(d *drawItem) {
 	call(g, "SelectObject", dc, old)
 }
 func probeMono() {
-	dc := call(u, "GetDC", 0)
-	f := call(g, "CreateFontW", signed(-16), 0, 0, 0, 400, 0, 0, 0, 1, 0, 0, 5, 0x31, w("Cascadia Mono"))
-	old := call(g, "SelectObject", dc, f)
-	var b [128]uint16
-	call(g, "GetTextFaceW", dc, 128, ptr(&b[0]))
-	if strings.EqualFold(syscall.UTF16ToString(b[:]), "Cascadia Mono") {
-		monoFace = "Cascadia Mono"
+	for _, face := range []string{"JetBrains Mono", "Cascadia Mono"} {
+		dc := call(u, "GetDC", 0)
+		f := call(g, "CreateFontW", signed(-16), 0, 0, 0, 400, 0, 0, 0, 1, 0, 0, 5, 0x31, w(face))
+		old := call(g, "SelectObject", dc, f)
+		var b [128]uint16
+		call(g, "GetTextFaceW", dc, 128, ptr(&b[0]))
+		if strings.EqualFold(syscall.UTF16ToString(b[:]), face) {
+			monoFace = face
+		}
+		call(g, "SelectObject", dc, old)
+		call(g, "DeleteObject", f)
+		call(u, "ReleaseDC", 0, dc)
+		if monoFace == face {
+			return
+		}
 	}
-	call(g, "SelectObject", dc, old)
-	call(g, "DeleteObject", f)
-	call(u, "ReleaseDC", 0, dc)
 }
 
 type sliderState struct {
@@ -1085,6 +1161,9 @@ func sliderProc(h, m, a, b uintptr) uintptr {
 		if v != s.pos {
 			s.pos = v
 			redraw()
+			if !uiUpdating && mainwin != 0 {
+				uiRead()
+			}
 		}
 	}
 	fromX := func(x int) {

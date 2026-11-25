@@ -18,9 +18,17 @@ type surface struct {
 	failed, pixelSet, saver                               bool
 	last, begin                                           time.Time
 	angle                                                 float64
+	uiFont, uiBold, uiCode                                uintptr
+	uiFontSize                                            int
+	next                                                  time.Time
 }
 
 func (s *surface) free() {
+	for _, f := range []uintptr{s.uiFont, s.uiBold, s.uiCode} {
+		if f != 0 {
+			call(g, "DeleteObject", f)
+		}
+	}
 	if s.rc != 0 {
 		call(gl, "wglMakeCurrent", s.dc, s.rc)
 		if s.list != 0 {
@@ -67,7 +75,7 @@ func (s *surface) initGL() bool {
 	return true
 }
 func mono(size int) uintptr {
-	return call(g, "CreateFontW", signed(-size), 0, 0, 0, 400, 0, 0, 0, 1, 0, 0, 4, 0x31, w(monoFace))
+	return call(g, "CreateFontW", signed(-size), 0, 0, 0, 400, 0, 0, 0, 1, 0, 0, 5, 0x31, w(monoFace))
 }
 func (s *surface) glFont(size int) bool {
 	if s.list != 0 && s.fontsize == size {
@@ -97,8 +105,14 @@ func glColor(c uint32, a float64) {
 func (s *surface) draw(force bool) {
 	now := time.Now()
 	dt := now.Sub(s.last).Seconds()
-	if !force && dt < .95/float64(effectiveFPS()) {
+	if !force && now.Before(s.next) {
 		return
+	}
+	period := time.Duration(float64(time.Second) / float64(effectiveFPS()))
+	if s.next.IsZero() || now.Sub(s.next) > period {
+		s.next = now.Add(period)
+	} else {
+		s.next = s.next.Add(period)
 	}
 	s.last = now
 	if dt > .15 {
@@ -112,40 +126,32 @@ func (s *surface) draw(force bool) {
 		sign = 0
 	}
 	if !paused || !s.saver {
-		s.angle += dt * .85 * float64(cfg.Speed) / 100 * sign * (1 + .32*audioState.Bands[1])
+		s.angle += dt * .85 * float64(cfg.Speed) / 100 * sign
 	}
 	r := client(s.hwnd)
 	ww, hh := int(r.R), int(r.B)
 	if ww < 10 || hh < 10 {
 		return
 	}
-	size := clamp(hh/52, 9, 28)
+	sceneH := hh
+	if cfg.Music && ww >= 280 && hh >= 190 {
+		sceneH = hh - clamp(hh/6, 104, 168)
+	}
+	size := clamp(sceneH/52, 9, 36)
 	cw := int(math.Round(float64(size) * .62))
 	ch := int(math.Round(float64(size) * 1.18))
 	if cw < 5 {
 		cw = 5
 	}
-	cols, rows := ww/cw, hh/ch
+	cols, rows := ww/cw, sceneH/ch
 	cols = clamp(cols, 1, 220)
 	rows = clamp(rows, 1, 100)
-	f := audioFrame(cols, rows, now.Sub(s.begin).Seconds(), s.angle, audioState, cfg, currentStats, s.saver && fullScreen && overlayVisible)
+	sceneCfg := cfg
+	sceneCfg.Spectrum = false
+	f := audioFrame(cols, rows, now.Sub(s.begin).Seconds(), s.angle, audioState, sceneCfg, currentStats, false)
 	ox := (ww - cols*cw) / 2
-	oy := (hh - rows*ch) / 2
-	ascii := true
-	for _, v := range cfg.Message {
-		if v > 127 {
-			ascii = false
-			break
-		}
-	}
-	if ascii && cfg.Renderer == renderers[0] && s.initGL() && s.glFont(size) {
-		s.drawGL(f, ww, hh, cw, ch, ox, oy, size)
-		return
-	}
-	if s.rc != 0 {
-		call(gl, "wglMakeCurrent", 0, 0)
-	}
-	s.drawGDI(f, ww, hh, cw, ch, ox, oy, size)
+	oy := (sceneH - rows*ch) / 2
+	s.drawGDI(f, ww, hh, cw, ch, ox, oy, size, sceneH)
 }
 func (s *surface) drawGL(f Frame, ww, hh, cw, ch, ox, oy, size int) {
 	call(gl, "glViewport", 0, 0, uintptr(ww), uintptr(hh))
@@ -186,7 +192,7 @@ func (s *surface) drawGL(f Frame, ww, hh, cw, ch, ox, oy, size int) {
 	}
 	call(g, "SwapBuffers", s.dc)
 }
-func (s *surface) drawGDI(f Frame, ww, hh, cw, ch, ox, oy, size int) {
+func (s *surface) drawGDI(f Frame, ww, hh, cw, ch, ox, oy, size, sceneH int) {
 	if s.mem == 0 || s.bw != ww || s.bh != hh {
 		if s.mem != 0 {
 			call(g, "SelectObject", s.mem, s.oldbmp)
@@ -195,6 +201,17 @@ func (s *surface) drawGDI(f Frame, ww, hh, cw, ch, ox, oy, size int) {
 		}
 		s.mem = call(g, "CreateCompatibleDC", s.dc)
 		s.bmp = call(g, "CreateCompatibleBitmap", s.dc, uintptr(ww), uintptr(hh))
+		if s.mem == 0 || s.bmp == 0 {
+			if s.mem != 0 {
+				call(g, "DeleteDC", s.mem)
+			}
+			if s.bmp != 0 {
+				call(g, "DeleteObject", s.bmp)
+			}
+			s.mem = 0
+			s.bmp = 0
+			return
+		}
 		s.oldbmp = call(g, "SelectObject", s.mem, s.bmp)
 		s.bw, s.bh = ww, hh
 	}
@@ -217,10 +234,8 @@ func (s *surface) drawGDI(f Frame, ww, hh, cw, ch, ox, oy, size int) {
 				continue
 			}
 			x, y := ox+v.X*cw, oy+v.Y*ch
-			rr := rect{int32(x - 2), int32(y - 1), int32(x + cw + 2), int32(y + ch + 1)}
-			b := call(g, "CreateSolidBrush", cr(shade(v.Color, .12+.10*audioState.Level)))
-			call(u, "FillRect", s.mem, ptr(&rr), b)
-			call(g, "DeleteObject", b)
+			rr := rect{int32(x), int32(y + 2), int32(x + cw), int32(y + ch - 2)}
+			rounded(s.mem, rr, 6, shade(v.Color, .10+.06*audioState.Level))
 		}
 	}
 	for _, v := range f.Cells {
@@ -232,6 +247,7 @@ func (s *surface) drawGDI(f Frame, ww, hh, cw, ch, ox, oy, size int) {
 		call(g, "TextOutW", s.mem, uintptr(ox+v.X*cw), uintptr(oy+v.Y*ch), ptr(&chv), 1)
 	}
 	call(g, "SelectObject", s.mem, old)
+	s.drawOverlay(ww, hh, sceneH)
 	call(g, "BitBlt", s.dc, 0, 0, uintptr(ww), uintptr(hh), s.mem, 0, 0, 0xCC0020)
 }
 

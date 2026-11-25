@@ -113,3 +113,42 @@ func BenchmarkFrame(b *testing.B) {
 		frame(120, 52, float64(i)*.01, float64(i)*.01, .3, s, "")
 	}
 }
+
+func TestV22RendererAndCodeStyleMigration(t *testing.T) {
+	s := defaults()
+	s.Renderer = renderers[0]
+	s.CodeStyle = 500
+	s = normalize(s)
+	if s.Renderer != renderers[1] || s.CodeStyle != len(codeThemes)-1 {
+		t.Fatalf("migration: %+v", s)
+	}
+	s.CodeStyle = -1
+	if normalize(s).CodeStyle != 0 {
+		t.Fatal("code style range")
+	}
+}
+func TestV22StableTreeGeometry(t *testing.T) {
+	s := defaults()
+	s.Snow = false
+	s.Matrix = false
+	s.Spectrum = false
+	s.Countdown = false
+	s.Messages = false
+	a := AudioFrame{Level: .8, Active: true}
+	a.Bands[0] = .9
+	a.Bands[1] = .7
+	f := audioFrame(120, 52, 1, .4, AudioFrame{}, s, "", false)
+	q := audioFrame(120, 52, 1, .4, a, s, "", false)
+	if len(f.Cells) != len(q.Cells) {
+		t.Fatalf("geometry count changed: %d %d", len(f.Cells), len(q.Cells))
+	}
+	for i, c := range f.Cells {
+		d := q.Cells[i]
+		if c.X != d.X || c.Y != d.Y || c.Depth != d.Depth {
+			t.Fatal("music moved tree geometry")
+		}
+	}
+	if reflect.DeepEqual(f, q) {
+		t.Fatal("lights did not react")
+	}
+}

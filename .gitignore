@@ -1,0 +1,9 @@
+/dist/
+/setup/app.exe
+*.exe
+*.scr
+*.tmp
+settings.json
+previous-saver.json
+.venv/
+__pycache__/

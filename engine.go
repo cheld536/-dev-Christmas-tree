@@ -13,17 +13,19 @@ type Settings struct {
 	Theme, Direction, Custom, Background, Message, Renderer                                 string
 	Speed, LightSpeed, FPS, Size                                                            int
 	AudioPreset                                                                             string
+	CodeStyle                                                                               int
 	AudioGain, BassGain, MidGain, HighGain                                                  int
 	Spectrum, ShowBPM, SafeLights, LowPower                                                 bool
 	Snow, Ornaments, Messages, Bloom, Matrix, Countdown, Monitor, Music, Multi, SnowPhysics bool
 }
 
 var themes = []string{"Rainbow RGB", "Classic Christmas", "Ice Blue", "Cyberpunk", "Gold & White", "Matrix Green", "Custom"}
+var codeThemes = []string{"Python", "C++", "Git", "Neural Network", "Minimal"}
 var directions = []string{"Clockwise", "Counterclockwise", "Static"}
 var renderers = []string{"OpenGL (auto fallback)", "GDI (compatibility)"}
 
 func defaults() Settings {
-	return Settings{Theme: themes[0], Direction: directions[0], Custom: "#5BD6FF", Background: "#071019", Renderer: renderers[0], Speed: 100, LightSpeed: 100, FPS: 60, Size: 88, Snow: true, Ornaments: true, Messages: true, Bloom: true, Matrix: true, Countdown: true, Music: true, Multi: true, SnowPhysics: true, AudioPreset: audioPresets[0], AudioGain: 100, BassGain: 100, MidGain: 100, HighGain: 100, Spectrum: true, ShowBPM: false, SafeLights: true}
+	return Settings{Theme: themes[0], Direction: directions[0], Custom: "#5BD6FF", Background: "#071019", Renderer: renderers[1], Speed: 100, LightSpeed: 100, FPS: 60, Size: 88, Snow: true, Ornaments: true, Messages: true, Bloom: true, Matrix: true, Countdown: true, Music: true, Multi: true, SnowPhysics: true, AudioPreset: audioPresets[0], AudioGain: 100, BassGain: 100, MidGain: 100, HighGain: 100, Spectrum: true, ShowBPM: false, SafeLights: true}
 }
 func clamp(x, a, b int) int {
 	if x < a {
@@ -57,15 +59,14 @@ func normalize(s Settings) Settings {
 	if !contains(directions, s.Direction) {
 		s.Direction = d.Direction
 	}
-	if !contains(renderers, s.Renderer) {
-		s.Renderer = d.Renderer
-	}
+	s.Renderer = renderers[1]
 	if _, ok := hexColor(s.Custom); !ok {
 		s.Custom = d.Custom
 	}
 	if _, ok := hexColor(s.Background); !ok {
 		s.Background = d.Background
 	}
+	s.CodeStyle = clamp(s.CodeStyle, 0, len(codeThemes)-1)
 	s.Speed = clamp(s.Speed, 0, 400)
 	s.LightSpeed = clamp(s.LightSpeed, 0, 400)
 	s.FPS = clamp(s.FPS, 10, 144)
@@ -338,8 +339,8 @@ func audioFrame(cols, rows int, t, angle float64, af AudioFrame, s Settings, sta
 			continue
 		}
 		x, z := p.x*ca-p.z*sa, p.x*sa+p.z*ca
-		pulse := 1 + .14*bass + .035*af.Beat
-		px, py, d := project(x*pulse, p.y*(1+.045*bass), z*pulse)
+		pulse := 1.0
+		px, py, d := project(x*pulse, p.y, z*pulse)
 		ch := p.ch
 		if p.kind == 1 && math.Sin(lt*6+p.u*40) > .6 {
 			ch = 'O'

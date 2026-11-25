@@ -121,7 +121,7 @@ func install(dir, menu string) error {
 			return e
 		}
 	}
-	for n, v := range map[string]string{"DisplayName": "Developer Christmas Tree", "DisplayVersion": "2.1.0", "Publisher": "Developer Christmas Tree", "InstallLocation": dir, "DisplayIcon": app, "UninstallString": "\"" + un + "\" /uninstall"} {
+	for n, v := range map[string]string{"DisplayName": "Developer Christmas Tree", "DisplayVersion": "2.2.0", "Publisher": "Developer Christmas Tree", "InstallLocation": dir, "DisplayIcon": app, "UninstallString": "\"" + un + "\" /uninstall"} {
 		if e := regSet(uninstallKey, n, v); e != nil {
 			return e
 		}
@@ -164,7 +164,7 @@ func install(dir, menu string) error {
 	return nil
 }
 func uninstall(dir, menu string) {
-	if msg("Christmas Tree를 삭제할까요?\n\n저장한 설정과 프리셋은 남겨 둡니다.", 0x24) != 6 {
+	if msg("Christmas Tree를 삭제할까요?\n\n설치된 앱과 화면 보호기를 제거합니다.", 0x24) != 6 {
 		return
 	}
 	scr := filepath.Join(dir, "DeveloperChristmasTree.scr")
@@ -210,6 +210,11 @@ func uninstall(dir, menu string) {
 	os.Remove(filepath.Join(menu, "Developer Christmas Tree.lnk"))
 	os.Remove(menu)
 	reg("delete", uninstallKey, "/f")
+	if msg("저장한 설정도 지울까요?\n\n직접 내보낸 프리셋 파일은 그대로 남습니다.", 0x24) == 6 {
+		if e := os.Remove(filepath.Join(dir, "settings.json")); e != nil && !os.IsNotExist(e) {
+			msg("설정 파일을 지우지 못했어요.\n"+e.Error(), 0x30)
+		}
+	}
 	msg("Christmas Tree를 삭제했어요.", 0x40)
 	me, _ := os.Executable()
 	if strings.EqualFold(me, filepath.Join(dir, "Uninstall.exe")) { // remove the running uninstaller after exit, using the literal path in an environment variable.
@@ -233,7 +238,7 @@ func main() {
 		uninstall(dir, menu)
 		return
 	}
-	if msg("Christmas Tree 2.1을 설치할까요?\n\n기존 설정은 그대로 유지됩니다.\n실행 중인 Christmas Tree 창을 먼저 닫아 주세요.", 0x24) != 6 {
+	if msg("Christmas Tree 2.2을 설치할까요?\n\n기존 설정은 그대로 유지됩니다.\n실행 중인 Christmas Tree 창을 먼저 닫아 주세요.", 0x24) != 6 {
 		return
 	}
 	if e := install(dir, menu); e != nil {

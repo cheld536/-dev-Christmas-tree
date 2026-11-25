@@ -1,0 +1,28 @@
+=== RUN   TestFFTBandSeparation
+--- PASS: TestFFTBandSeparation (0.07s)
+=== RUN   TestSilenceAndGain
+--- PASS: TestSilenceAndGain (0.01s)
+=== RUN   TestBeatAndTempo
+--- PASS: TestBeatAndTempo (0.07s)
+=== RUN   TestAudioReactiveRendering
+--- PASS: TestAudioReactiveRendering (0.00s)
+=== RUN   TestUpgradeSettings
+--- PASS: TestUpgradeSettings (0.00s)
+=== RUN   TestThemesAndDimensions
+--- PASS: TestThemesAndDimensions (0.02s)
+=== RUN   TestRotationAndAudio
+--- PASS: TestRotationAndAudio (0.00s)
+=== RUN   TestEffects
+--- PASS: TestEffects (0.01s)
+=== RUN   TestSettings
+--- PASS: TestSettings (0.00s)
+=== RUN   TestCountdown
+--- PASS: TestCountdown (0.00s)
+=== RUN   TestTinyFrame
+--- PASS: TestTinyFrame (0.00s)
+=== RUN   TestV22RendererAndCodeStyleMigration
+--- PASS: TestV22RendererAndCodeStyleMigration (0.00s)
+=== RUN   TestV22StableTreeGeometry
+--- PASS: TestV22StableTreeGeometry (0.00s)
+PASS
+ok  	christmas	0.189s
