@@ -22,12 +22,12 @@ Windows용 3D ASCII 크리스마스 트리입니다. 색과 회전, 눈, 코드 
 
 ### 버전별 다운로드
 
-| 버전 | GitHub Release의 EXE | 실행 방식 |
+| 버전 | EXE 바로 받기 | 실행 방식 |
 | --- | --- | --- |
-| [v2.2.0](https://github.com/cheld536/-dev-Christmas-tree/releases/tag/v2.2.0) | `DeveloperChristmasTree_v2.2_Setup.exe` | Windows 설치 |
-| [v2.1.0](https://github.com/cheld536/-dev-Christmas-tree/releases/tag/v2.1.0) | `DeveloperChristmasTree_v2.1_Setup.exe` | Windows 설치 |
-| [v2.0.0](https://github.com/cheld536/-dev-Christmas-tree/releases/tag/v2.0.0) | `DeveloperChristmasTree_v2.0_Setup.exe` | Windows 설치 |
-| [v1.0.0](https://github.com/cheld536/-dev-Christmas-tree/releases/tag/v1.0.0) | `DeveloperChristmasTree_v1.0.exe` | 두 번 클릭하면 Python/Tkinter 설정 창이 열립니다. |
+| [v2.2.0](https://github.com/cheld536/-dev-Christmas-tree/releases/tag/v2.2.0) | [DeveloperChristmasTree_v2.2_Setup.exe](https://github.com/cheld536/-dev-Christmas-tree/releases/download/v2.2.0/DeveloperChristmasTree_v2.2_Setup.exe) | Windows 설치 |
+| [v2.1.0](https://github.com/cheld536/-dev-Christmas-tree/releases/tag/v2.1.0) | [DeveloperChristmasTree_v2.1_Setup.exe](https://github.com/cheld536/-dev-Christmas-tree/releases/download/v2.1.0/DeveloperChristmasTree_v2.1_Setup.exe) | Windows 설치 |
+| [v2.0.0](https://github.com/cheld536/-dev-Christmas-tree/releases/tag/v2.0.0) | [DeveloperChristmasTree_v2.0_Setup.exe](https://github.com/cheld536/-dev-Christmas-tree/releases/download/v2.0.0/DeveloperChristmasTree_v2.0_Setup.exe) | Windows 설치 |
+| [v1.0.0](https://github.com/cheld536/-dev-Christmas-tree/releases/tag/v1.0.0) | [DeveloperChristmasTree_v1.0.exe](https://github.com/cheld536/-dev-Christmas-tree/releases/download/v1.0.0/DeveloperChristmasTree_v1.0.exe) | 두 번 클릭하면 Python/Tkinter 설정 창이 열립니다. |
 
 <details>
 <summary>다운로드한 파일의 SHA256 확인</summary>
