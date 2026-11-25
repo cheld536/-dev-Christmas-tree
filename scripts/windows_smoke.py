@@ -19,6 +19,7 @@ USER32.GetClassNameW.argtypes = [wintypes.HWND, wintypes.LPWSTR, ctypes.c_int]
 USER32.IsWindowVisible.argtypes = [wintypes.HWND]
 USER32.GetDlgItem.argtypes = [wintypes.HWND, ctypes.c_int]
 USER32.GetDlgItem.restype = wintypes.HWND
+USER32.GetDlgCtrlID.argtypes = [wintypes.HWND]
 USER32.PostMessageW.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM]
 USER32.SendMessageW.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM]
 USER32.SendMessageW.restype = wintypes.LPARAM
@@ -162,25 +163,36 @@ def dialog(process, expected, response):
         nonlocal last
         for hwnd in visible_windows(process, "#32770"):
             content = []
+            buttons = []
 
             @ENUM
             def read(child, _):
                 value = text(child)
                 if value:
                     content.append(value)
+                klass = ctypes.create_unicode_buffer(30)
+                USER32.GetClassNameW(child, klass, len(klass))
+                if klass.value == "Button":
+                    buttons.append(child)
                 return True
 
             USER32.EnumChildWindows(hwnd, read, 0)
             last = " ".join(content)
-            if expected in last and USER32.GetDlgItem(hwnd, response):
-                return hwnd
+            if expected in last:
+                button = USER32.GetDlgItem(hwnd, response)
+                if response == 1 and len(buttons) == 1:
+                    button = buttons[0]
+                if button:
+                    return hwnd, button
             if "복원하지 못했어요" in last or "try uninstalling again" in last or "could not be completed" in last:
                 raise AssertionError(last)
         return None
 
     try:
-        hwnd = wait(find, expected, 18)
-        post(hwnd, 0x111, response)
+        hwnd, button = wait(find, expected, 18)
+        button_id = USER32.GetDlgCtrlID(button)
+        if not USER32.PostMessageW(hwnd, 0x111, button_id, button):
+            raise ctypes.WinError(ctypes.get_last_error())
         wait(lambda: not USER32.IsWindow(hwnd) or process.poll() is not None, expected, 18)
     except AssertionError as error:
         raise AssertionError(f"{error}. 마지막 대화 상자: {last}") from error

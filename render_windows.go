@@ -169,8 +169,8 @@ func (s *surface) draw(force bool) {
 	if w != dw || h != dh {
 		call(g, "PatBlt", s.dc, 0, 0, uintptr(dw), uintptr(dh), 0x42)
 	}
-	call(g, "SetStretchBltMode", s.dc, 4)
-	call(g, "SetBrushOrgEx", s.dc, 0, 0, 0)
+	// ASCII 글자의 가장자리를 보존하고 큰 화면을 매 프레임 보간하는 비용을 줄입니다.
+	call(g, "SetStretchBltMode", s.dc, 3)
 	call(g, "StretchBlt", s.dc, uintptr((dw-w)/2), uintptr((dh-h)/2), uintptr(w), uintptr(h), s.mem, 0, 0, uintptr(ww), uintptr(hh), 0xCC0020)
 }
 func (s *surface) drawGL(f Frame, ww, hh, cw, ch, ox, oy, size int) {
