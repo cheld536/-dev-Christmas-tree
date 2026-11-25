@@ -46,7 +46,17 @@ if ($isRestored) {
     $version = $tag.Substring(1) -replace '\.0$', ''
     $exeName = "DeveloperChristmasTree_v${version}_Setup.exe"
 }
-Invoke-Gh api "repos/$repo/git/ref/tags/$tag" --jq .ref
+$tagRef = Invoke-Gh api "repos/$repo/git/ref/tags/$tag" | ConvertFrom-Json
+$prerelease = $false
+$notes = @('--generate-notes')
+if (-not $isRestored -and $tagRef.object.type -ceq 'tag') {
+    $annotation = Invoke-Gh api "repos/$repo/git/tags/$($tagRef.object.sha)" --jq .message
+    if ($annotation -ccontains 'Release-Channel: prerelease') {
+        $prerelease = $true
+        $body = ($annotation | Where-Object { $_ -cne 'Release-Channel: prerelease' }) -join "`n"
+        if ($body.Trim()) { $notes = @('--notes', $body.Trim()) }
+    }
+}
 $exePath = Join-Path $directory $exeName
 $checksumPath = Join-Path $directory $checksumName
 $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $exePath).Hash.ToLowerInvariant()
@@ -58,7 +68,9 @@ if ($isRestored -and "$hash  $exeName" -cnotin (Get-Content -LiteralPath docs/re
 }
 
 if (-not $release) {
-    Invoke-Gh release create $tag --repo $repo --verify-tag --draft --title "Developer Christmas Tree $tag" --generate-notes
+    $options = @()
+    if ($prerelease) { $options += '--prerelease' }
+    Invoke-Gh release create $tag --repo $repo --verify-tag --draft --title "Developer Christmas Tree $tag" @options @notes
     $release = Get-Release
 }
 if ($release.tag_name -cne $tag -or @($release.assets | Where-Object { $_.name -cnotin @($exeName, $checksumName) }).Count -ne 0) {
@@ -75,8 +87,10 @@ foreach ($path in @($exePath, $checksumPath)) {
     Assert-Asset $asset $path
 }
 if ($release.draft) {
-    $latest = (-not $isRestored -or $tag -ceq 'v2.2.0').ToString().ToLowerInvariant()
-    Invoke-Gh release edit $tag --repo $repo --draft=false "--latest=$latest"
+    $latest = (-not $prerelease -and (-not $isRestored -or $tag -ceq 'v2.2.0')).ToString().ToLowerInvariant()
+    $options = @()
+    if (-not $isRestored) { $options += "--prerelease=$($prerelease.ToString().ToLowerInvariant())" }
+    Invoke-Gh release edit $tag --repo $repo --draft=false "--latest=$latest" @options
     $release = Get-Release
     if ($release.draft) { throw '릴리스가 아직 초안 상태입니다.' }
 }

@@ -2,9 +2,9 @@
 
 Windows용 3D ASCII 크리스마스 트리입니다. 색과 회전, 눈, 코드 장식을 바꾸고, v2에서는 시스템 음악에 반응하는 트리를 전체 화면이나 화면 보호기로 즐길 수 있습니다.
 
-**Windows 10/11 x64 대상 · 공개 릴리스 v2.2.0 · 개발 빌드 v2.3.0**
+**Windows 10/11 x64 대상 · 최신 정식 릴리스 v2.2.0 · [v2.3.0 프리릴리스](https://github.com/cheld536/-dev-Christmas-tree/releases/tag/v2.3.0)**
 
-### v2.3 개발 버전
+### v2.3 프리릴리스
 
 **LIVE PREVIEW** 아래의 **전체 화면 해상도**에서 **자동**, **1080p (1920×1080)**, **4K (3840×2160)**를 선택한 뒤 **저장**을 누릅니다. F11로 열리는 화면에 적용됩니다. 다른 화면 비율에서는 원본 비율을 유지하도록 여백이 생깁니다. Windows 디스플레이 모드는 현재 값으로 유지됩니다.
 
@@ -32,6 +32,7 @@ v2.3 설치 화면에는 버전과 설치 위치가 표시됩니다. **바탕 �
 
 | 버전 | EXE 바로 받기 | 실행 방식 |
 | --- | --- | --- |
+| [v2.3.0 프리릴리스](https://github.com/cheld536/-dev-Christmas-tree/releases/tag/v2.3.0) | [DeveloperChristmasTree_v2.3_Setup.exe](https://github.com/cheld536/-dev-Christmas-tree/releases/download/v2.3.0/DeveloperChristmasTree_v2.3_Setup.exe) | Windows 설치 |
 | [v2.2.0](https://github.com/cheld536/-dev-Christmas-tree/releases/tag/v2.2.0) | [DeveloperChristmasTree_v2.2_Setup.exe](https://github.com/cheld536/-dev-Christmas-tree/releases/download/v2.2.0/DeveloperChristmasTree_v2.2_Setup.exe) | Windows 설치 |
 | [v2.1.0](https://github.com/cheld536/-dev-Christmas-tree/releases/tag/v2.1.0) | [DeveloperChristmasTree_v2.1_Setup.exe](https://github.com/cheld536/-dev-Christmas-tree/releases/download/v2.1.0/DeveloperChristmasTree_v2.1_Setup.exe) | Windows 설치 |
 | [v2.0.0](https://github.com/cheld536/-dev-Christmas-tree/releases/tag/v2.0.0) | [DeveloperChristmasTree_v2.0_Setup.exe](https://github.com/cheld536/-dev-Christmas-tree/releases/download/v2.0.0/DeveloperChristmasTree_v2.0_Setup.exe) | Windows 설치 |
@@ -123,6 +124,8 @@ Windows에서 Go 1.23 이상으로 아래 명령을 실행합니다. 외부 Go �
 
 GitHub Actions는 `main` 푸시와 풀 리퀘스트에서 Go 및 Python 테스트와 Windows 빌드를 실행합니다. `main`에 포함된 커밋의 새 `vMAJOR.MINOR.PATCH` 태그를 푸시하면 해당 버전으로 설치기를 빌드하고, EXE와 검사값을 검증한 뒤 GitHub Release를 공개합니다.
 
+주석 태그에 `Release-Channel: prerelease` 줄을 넣으면 프리릴리스로 공개합니다. 같은 태그의 나머지 주석이 있으면 릴리스 설명으로 사용합니다.
+
 | 경로 | 역할 |
 | --- | --- |
 | `engine.go`, `audio.go` | 3D 투영·테마·효과, FFT·비트·오디오 반응 |
@@ -140,7 +143,5 @@ Windows 11 x64에서 v1 설정 창 실행과 v2 세 버전의 설치·실행·�
 Git 이력은 제공된 과거 소스 스냅샷을 바탕으로 재구성했습니다. 라이선스는 저장소 소유자가 결정하기 전까지 미지정 상태입니다.
 
 ## 개발 중인 버전
-
-v2.3.0 개발 빌드에는 터미널 스타일의 미리보기, 전체 화면 1080p·4K 선택, 새 트리 아이콘과 설치 창이 포함됩니다. [v2.3 개발 브랜치의 README](https://github.com/cheld536/-dev-Christmas-tree/tree/development/v2.3.0#readme)에서 화면과 사용법을 확인할 수 있습니다.
 
 v2.4.0에서는 두 이름과 시작일을 입력하는 커플 기념일 카운터를 계획하고 있습니다. 표시 예시는 `지우 ♥️ 하늘  D+100일`입니다. [v2.4 로드맵](docs/ROADMAP.md)
