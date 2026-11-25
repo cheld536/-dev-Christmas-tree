@@ -118,3 +118,9 @@ Windows 11 x64에서 v1 설정 창 실행과 v2 세 버전의 설치·실행·�
 [변경 이력](CHANGELOG.md) · [아키텍처](docs/ARCHITECTURE.md) · [Windows QA](docs/WINDOWS_QA.md) · [배포 파일 SHA256](docs/release-checksums.txt)
 
 Git 이력은 제공된 과거 소스 스냅샷을 바탕으로 재구성했습니다. 라이선스는 저장소 소유자가 결정하기 전까지 미지정 상태입니다.
+
+## 개발 중인 버전
+
+v2.3.0 개발 빌드에는 터미널 스타일의 미리보기, 전체 화면 1080p·4K 선택, 새 트리 아이콘과 설치 창이 포함됩니다. [v2.3 개발 브랜치의 README](https://github.com/cheld536/-dev-Christmas-tree/tree/development/v2.3.0#readme)에서 화면과 사용법을 확인할 수 있습니다.
+
+v2.4.0에서는 두 이름과 시작일을 입력하는 커플 기념일 카운터를 계획하고 있습니다. 표시 예시는 `지우 ♥️ 하늘  D+100일`입니다. [v2.4 로드맵](docs/ROADMAP.md)
