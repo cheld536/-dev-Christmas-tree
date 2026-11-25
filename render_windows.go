@@ -1,0 +1,234 @@
+package main
+
+import (
+	"math"
+	"time"
+	"unsafe"
+)
+
+type pfd struct {
+	Size, Version                                                                                                                                                                                                               uint16
+	Flags                                                                                                                                                                                                                       uint32
+	PixelType, ColorBits, RedBits, RedShift, GreenBits, GreenShift, BlueBits, BlueShift, AlphaBits, AlphaShift, AccumBits, AccumRed, AccumGreen, AccumBlue, AccumAlpha, DepthBits, StencilBits, AuxBuffers, LayerType, Reserved byte
+	LayerMask, VisibleMask, DamageMask                                                                                                                                                                                          uint32
+}
+type surface struct {
+	hwnd, dc, rc, list, glfont, gdifont, mem, bmp, oldbmp uintptr
+	width, height, fontsize, bw, bh                       int
+	failed, pixelSet, saver                               bool
+	last, begin                                           time.Time
+	angle                                                 float64
+}
+
+func (s *surface) free() {
+	if s.rc != 0 {
+		call(gl, "wglMakeCurrent", s.dc, s.rc)
+		if s.list != 0 {
+			call(gl, "glDeleteLists", s.list, 96)
+		}
+		call(gl, "wglMakeCurrent", 0, 0)
+		call(gl, "wglDeleteContext", s.rc)
+	}
+	if s.glfont != 0 {
+		call(g, "DeleteObject", s.glfont)
+	}
+	if s.mem != 0 {
+		call(g, "SelectObject", s.mem, s.oldbmp)
+		call(g, "DeleteObject", s.bmp)
+		call(g, "DeleteDC", s.mem)
+	}
+	if s.gdifont != 0 {
+		call(g, "DeleteObject", s.gdifont)
+	}
+	call(u, "KillTimer", s.hwnd, 1)
+	call(u, "ReleaseDC", s.hwnd, s.dc)
+}
+func (s *surface) initGL() bool {
+	if s.failed {
+		return false
+	}
+	if s.rc != 0 {
+		return call(gl, "wglMakeCurrent", s.dc, s.rc) != 0
+	}
+	if !s.pixelSet {
+		p := pfd{Size: uint16(unsafe.Sizeof(pfd{})), Version: 1, Flags: 0x25, ColorBits: 32, DepthBits: 0}
+		fmt := call(g, "ChoosePixelFormat", s.dc, ptr(&p))
+		if fmt == 0 || call(g, "SetPixelFormat", s.dc, fmt, ptr(&p)) == 0 {
+			s.failed = true
+			return false
+		}
+		s.pixelSet = true
+	}
+	s.rc = call(gl, "wglCreateContext", s.dc)
+	if s.rc == 0 || call(gl, "wglMakeCurrent", s.dc, s.rc) == 0 {
+		s.failed = true
+		return false
+	}
+	return true
+}
+func mono(size int) uintptr {
+	return call(g, "CreateFontW", signed(-size), 0, 0, 0, 400, 0, 0, 0, 1, 0, 0, 4, 0x31, w("Consolas"))
+}
+func (s *surface) glFont(size int) bool {
+	if s.list != 0 && s.fontsize == size {
+		return true
+	}
+	if s.list != 0 {
+		call(gl, "glDeleteLists", s.list, 96)
+		s.list = 0
+	}
+	if s.glfont != 0 {
+		call(g, "DeleteObject", s.glfont)
+	}
+	s.glfont = mono(size)
+	old := call(g, "SelectObject", s.dc, s.glfont)
+	s.list = call(gl, "glGenLists", 96)
+	ok := s.list != 0 && call(gl, "wglUseFontBitmapsW", s.dc, 32, 96, s.list) != 0
+	call(g, "SelectObject", s.dc, old)
+	s.fontsize = size
+	if !ok {
+		s.failed = true
+	}
+	return ok
+}
+func glColor(c uint32, a float64) {
+	call(gl, "glColor4ub", uintptr(c>>16&255), uintptr(c>>8&255), uintptr(c&255), uintptr(math.Round(a*255)))
+}
+func (s *surface) draw(force bool) {
+	now := time.Now()
+	dt := now.Sub(s.last).Seconds()
+	if !force && dt < .90/float64(cfg.FPS) {
+		return
+	}
+	s.last = now
+	if dt > .15 {
+		dt = .15
+	}
+	sign := 1.
+	if cfg.Direction == "Counterclockwise" {
+		sign = -1
+	}
+	if cfg.Direction == "Static" {
+		sign = 0
+	}
+	s.angle += dt * .85 * float64(cfg.Speed) / 100 * sign
+	r := client(s.hwnd)
+	ww, hh := int(r.R), int(r.B)
+	if ww < 10 || hh < 10 {
+		return
+	}
+	size := clamp(hh/52, 9, 28)
+	cw := int(math.Round(float64(size) * .62))
+	ch := int(math.Round(float64(size) * 1.18))
+	if cw < 5 {
+		cw = 5
+	}
+	cols, rows := ww/cw, hh/ch
+	cols = clamp(cols, 1, 220)
+	rows = clamp(rows, 1, 100)
+	f := frame(cols, rows, now.Sub(s.begin).Seconds(), s.angle, audio, cfg, currentStats)
+	ox := (ww - cols*cw) / 2
+	oy := (hh - rows*ch) / 2
+	ascii := true
+	for _, v := range cfg.Message {
+		if v > 127 {
+			ascii = false
+			break
+		}
+	}
+	if ascii && cfg.Renderer == renderers[0] && s.initGL() && s.glFont(size) {
+		s.drawGL(f, ww, hh, cw, ch, ox, oy, size)
+		return
+	}
+	if s.rc != 0 {
+		call(gl, "wglMakeCurrent", 0, 0)
+	}
+	s.drawGDI(f, ww, hh, cw, ch, ox, oy, size)
+}
+func (s *surface) drawGL(f Frame, ww, hh, cw, ch, ox, oy, size int) {
+	call(gl, "glViewport", 0, 0, uintptr(ww), uintptr(hh))
+	call(gl, "glMatrixMode", 0x1701)
+	call(gl, "glLoadIdentity")
+	call(gl, "glOrtho", f64(0), f64(float64(ww)), f64(float64(hh)), f64(0), f64(-1), f64(1))
+	call(gl, "glMatrixMode", 0x1700)
+	call(gl, "glLoadIdentity")
+	c := f.BG
+	call(gl, "glClearColor", f32(float64(c>>16&255)/255), f32(float64(c>>8&255)/255), f32(float64(c&255)/255), f32(1))
+	call(gl, "glClear", 0x4000)
+	if cfg.Bloom {
+		call(gl, "glEnable", 0x0BE2)
+		call(gl, "glBlendFunc", 0x0302, 1)
+		call(gl, "glEnable", 0x0B10)
+		for _, layer := range []struct{ sz, a float64 }{{2.2, .035}, {1.4, .06}, {.75, .12}} {
+			call(gl, "glPointSize", f32(float64(size)*layer.sz))
+			call(gl, "glBegin", 0)
+			for _, v := range f.Cells {
+				if !v.Glow {
+					continue
+				}
+				glColor(v.Color, layer.a)
+				call(gl, "glVertex2i", uintptr(ox+v.X*cw+cw/2), uintptr(oy+v.Y*ch+ch/2))
+			}
+			call(gl, "glEnd")
+		}
+		call(gl, "glDisable", 0x0B10)
+		call(gl, "glDisable", 0x0BE2)
+	}
+	for _, v := range f.Cells {
+		if v.Ch < 32 || v.Ch > 127 {
+			continue
+		}
+		glColor(v.Color, 1)
+		call(gl, "glRasterPos2i", uintptr(ox+v.X*cw), uintptr(oy+v.Y*ch+size))
+		call(gl, "glCallList", s.list+uintptr(v.Ch-32))
+	}
+	call(g, "SwapBuffers", s.dc)
+}
+func (s *surface) drawGDI(f Frame, ww, hh, cw, ch, ox, oy, size int) {
+	if s.mem == 0 || s.bw != ww || s.bh != hh {
+		if s.mem != 0 {
+			call(g, "SelectObject", s.mem, s.oldbmp)
+			call(g, "DeleteObject", s.bmp)
+			call(g, "DeleteDC", s.mem)
+		}
+		s.mem = call(g, "CreateCompatibleDC", s.dc)
+		s.bmp = call(g, "CreateCompatibleBitmap", s.dc, uintptr(ww), uintptr(hh))
+		s.oldbmp = call(g, "SelectObject", s.mem, s.bmp)
+		s.bw, s.bh = ww, hh
+	}
+	if s.gdifont == 0 || s.height != size {
+		if s.gdifont != 0 {
+			call(g, "DeleteObject", s.gdifont)
+		}
+		s.gdifont = mono(size)
+		s.height = size
+	}
+	r := rect{0, 0, int32(ww), int32(hh)}
+	brush := call(g, "CreateSolidBrush", cr(f.BG))
+	call(u, "FillRect", s.mem, ptr(&r), brush)
+	call(g, "DeleteObject", brush)
+	old := call(g, "SelectObject", s.mem, s.gdifont)
+	call(g, "SetBkMode", s.mem, 1)
+	if cfg.Bloom {
+		for _, v := range f.Cells {
+			if !v.Glow {
+				continue
+			}
+			x, y := ox+v.X*cw, oy+v.Y*ch
+			rr := rect{int32(x - 2), int32(y - 1), int32(x + cw + 2), int32(y + ch + 1)}
+			b := call(g, "CreateSolidBrush", cr(shade(v.Color, .15)))
+			call(u, "FillRect", s.mem, ptr(&rr), b)
+			call(g, "DeleteObject", b)
+		}
+	}
+	for _, v := range f.Cells {
+		call(g, "SetTextColor", s.mem, cr(v.Color))
+		chv := uint16(v.Ch)
+		if v.Ch > 0xffff {
+			chv = '?'
+		}
+		call(g, "TextOutW", s.mem, uintptr(ox+v.X*cw), uintptr(oy+v.Y*ch), ptr(&chv), 1)
+	}
+	call(g, "SelectObject", s.mem, old)
+	call(g, "BitBlt", s.dc, 0, 0, uintptr(ww), uintptr(hh), s.mem, 0, 0, 0xCC0020)
+}
