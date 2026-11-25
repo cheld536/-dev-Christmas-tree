@@ -4,6 +4,12 @@ Windows용 3D ASCII 크리스마스 트리입니다. 색과 회전, 눈, 코드 
 
 **Windows 10/11 x64 대상 · 최신 배포 v2.2.0 (테스트 빌드)**
 
+### v2.3 개발 버전
+
+기본 미리보기와 전체 화면에 터미널형 하단 메시지가 표시됩니다. 미리보기 아래 **전체 화면 해상도**에서 **자동**, **1080p (1920×1080)**, **4K (3840×2160)**를 선택하고 **저장**을 누릅니다. F11로 열린 화면에 적용되며, 다른 화면 비율에서는 원본 비율을 유지하도록 여백이 생깁니다. Windows 디스플레이 모드는 현재 값으로 유지됩니다.
+
+![컬러 ASCII 트리, 현재 버전과 설치 위치, 화면 보호기 선택이 보이는 v2.3 설치 화면](docs/images/setup-v2.3.png)
+
 | 시작 방법 | 필요한 것 |
 | --- | --- |
 | [EXE로 설치하기](#exe로-설치하기) | v2 설치 파일과 Windows. Python과 Go 설치 없이 실행할 수 있습니다. |
@@ -99,7 +105,7 @@ Windows에서 Go 1.23 이상으로 아래 명령을 실행합니다. 외부 Go �
 .\build.ps1
 ```
 
-빌드 결과는 `dist/DeveloperChristmasTree_v2.2_Setup.exe`와 `dist/v2.2.0-SHA256SUMS.txt`에 생성됩니다. 설치기는 먼저 빌드한 `setup/app.exe`를 포함합니다. Python 테스트는 `legacy\python`에서 `py -3.13 -m unittest -v test_app`로 실행합니다.
+현재 개발 소스의 빌드 결과는 `dist/DeveloperChristmasTree_v2.3_Setup.exe`와 `dist/v2.3.0-SHA256SUMS.txt`입니다. 설치기는 먼저 빌드한 `setup/app.exe`를 포함합니다. Windows 아이콘 리소스는 빌드 시 생성됩니다. Python 테스트는 `legacy\python`에서 `py -3.13 -m unittest -v test_app`로 실행합니다.
 
 GitHub Actions는 `main` 푸시와 풀 리퀘스트에서 Go 및 Python 테스트와 Windows 빌드를 실행합니다. `main`에 포함된 커밋의 새 `vMAJOR.MINOR.PATCH` 태그를 푸시하면 해당 버전으로 설치기를 빌드하고, EXE와 검사값을 검증한 뒤 GitHub Release를 공개합니다.
 

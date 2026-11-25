@@ -13,6 +13,7 @@ type Settings struct {
 	Theme, Direction, Custom, Background, Message, Renderer                                 string
 	Speed, LightSpeed, FPS, Size                                                            int
 	AudioPreset                                                                             string
+	FullscreenResolution                                                                    string
 	CodeStyle                                                                               int
 	AudioGain, BassGain, MidGain, HighGain                                                  int
 	Spectrum, ShowBPM, SafeLights, LowPower                                                 bool
@@ -23,9 +24,10 @@ var themes = []string{"Rainbow RGB", "Classic Christmas", "Ice Blue", "Cyberpunk
 var codeThemes = []string{"Python", "C++", "Git", "Neural Network", "Minimal"}
 var directions = []string{"Clockwise", "Counterclockwise", "Static"}
 var renderers = []string{"OpenGL (auto fallback)", "GDI (compatibility)"}
+var fullscreenResolutions = []string{"자동 (모니터 해상도)", "1080p", "4K"}
 
 func defaults() Settings {
-	return Settings{Theme: themes[0], Direction: directions[0], Custom: "#5BD6FF", Background: "#071019", Renderer: renderers[1], Speed: 100, LightSpeed: 100, FPS: 60, Size: 88, Snow: true, Ornaments: true, Messages: true, Bloom: true, Matrix: true, Countdown: true, Music: true, Multi: true, SnowPhysics: true, AudioPreset: audioPresets[0], AudioGain: 100, BassGain: 100, MidGain: 100, HighGain: 100, Spectrum: true, ShowBPM: false, SafeLights: true}
+	return Settings{Theme: themes[0], Direction: directions[0], Custom: "#5BD6FF", Background: "#0D0D0D", Renderer: renderers[1], FullscreenResolution: fullscreenResolutions[0], Speed: 100, LightSpeed: 100, FPS: 60, Size: 88, Snow: true, Ornaments: true, Messages: true, Bloom: true, Matrix: true, Countdown: true, Music: true, Multi: true, SnowPhysics: true, AudioPreset: audioPresets[0], AudioGain: 100, BassGain: 100, MidGain: 100, HighGain: 100, Spectrum: true, ShowBPM: false, SafeLights: true}
 }
 func clamp(x, a, b int) int {
 	if x < a {
@@ -60,6 +62,9 @@ func normalize(s Settings) Settings {
 		s.Direction = d.Direction
 	}
 	s.Renderer = renderers[1]
+	if !contains(fullscreenResolutions, s.FullscreenResolution) {
+		s.FullscreenResolution = d.FullscreenResolution
+	}
 	if _, ok := hexColor(s.Custom); !ok {
 		s.Custom = d.Custom
 	}

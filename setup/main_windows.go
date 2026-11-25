@@ -3,12 +3,12 @@ package main
 import (
 	_ "embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"strings"
 	"syscall"
 	"unsafe"
@@ -16,7 +16,7 @@ import (
 
 //go:embed app.exe
 var payload []byte
-var version = "2.2.0"
+var version = "2.3.0"
 var u = syscall.NewLazyDLL("user32.dll")
 var shell = syscall.NewLazyDLL("shell32.dll")
 
@@ -85,7 +85,7 @@ func link(path, target, args string) error {
 	if e := os.MkdirAll(filepath.Dir(path), 0755); e != nil {
 		return e
 	}
-	c := exec.Command("powershell.exe", "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", `$ErrorActionPreference='Stop'; $w=New-Object -ComObject WScript.Shell; $s=$w.CreateShortcut($env:DCT_LINK); $s.TargetPath=$env:DCT_TARGET; $s.Arguments=$env:DCT_ARGS; $s.WorkingDirectory=[IO.Path]::GetDirectoryName($env:DCT_TARGET); $s.Save()`)
+	c := exec.Command("powershell.exe", "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", `$ErrorActionPreference='Stop'; $w=New-Object -ComObject WScript.Shell; $s=$w.CreateShortcut($env:DCT_LINK); $s.TargetPath=$env:DCT_TARGET; $s.Arguments=$env:DCT_ARGS; $s.IconLocation=$env:DCT_TARGET+',0'; $s.WorkingDirectory=[IO.Path]::GetDirectoryName($env:DCT_TARGET); $s.Save()`)
 	c.Env = append(os.Environ(), "DCT_LINK="+path, "DCT_TARGET="+target, "DCT_ARGS="+args)
 	c.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: 0x08000000}
 	return c.Run()
@@ -94,19 +94,37 @@ func link(path, target, args string) error {
 type prior struct {
 	Path, Active, Timeout                          string
 	HasPath, HasActive, HasTimeout, ChangedTimeout bool
+	SystemTimeout                                  uint32
+	SystemActive, HasSystemActive                  bool
 }
 
-func install(dir, menu string) error {
+func install(dir, menu string, registerSaver bool, progress func(string)) (failure error) {
 	if e := os.MkdirAll(dir, 0755); e != nil {
 		return e
 	}
+	export, e := os.MkdirTemp("", "dct-uninstall-")
+	if e != nil {
+		return e
+	}
+	defer os.RemoveAll(export)
 	app := filepath.Join(dir, "DeveloperChristmasTree.exe")
 	scr := filepath.Join(dir, "DeveloperChristmasTree.scr")
 	un := filepath.Join(dir, "Uninstall.exe")
-	if e := copyFile(app, payload); e != nil {
-		return fmt.Errorf("Close any running Christmas Tree windows, then try again.\n%w", e)
+	shortcut := filepath.Join(menu, "Developer Christmas Tree.lnk")
+	saverBackup := filepath.Join(dir, "previous-saver.json")
+	journal := installJournal{}
+	defer func() {
+		if failure != nil {
+			if rollbackErr := journal.rollback(); rollbackErr != nil {
+				failure = errors.Join(failure, fmt.Errorf("기존 설치 상태를 복원하지 못했습니다. %w", rollbackErr))
+			}
+		}
+	}()
+	progress("앱과 화면 보호기 파일을 복사하는 중…")
+	if e := journal.write(app, payload); e != nil {
+		return fmt.Errorf("실행 중인 Christmas Tree 창을 닫고 다시 시도하세요.\n%w", e)
 	}
-	if e := copyFile(scr, payload); e != nil {
+	if e := journal.write(scr, payload); e != nil {
 		return e
 	}
 	me, e := os.Executable()
@@ -118,39 +136,44 @@ func install(dir, menu string) error {
 		if e != nil {
 			return e
 		}
-		if e = copyFile(un, b); e != nil {
+		if e = journal.write(un, b); e != nil {
 			return e
 		}
+	}
+	progress("시작 메뉴와 설치된 앱에 등록하는 중…")
+	if e := journal.changeFile(shortcut, func() error { return installShortcut(shortcut, app) }); e != nil {
+		return fmt.Errorf("시작 메뉴 바로가기를 만들 수 없습니다.\n%w", e)
+	}
+	if e := journal.saveUninstallKey(filepath.Join(export, "previous.reg")); e != nil {
+		return e
 	}
 	for n, v := range map[string]string{"DisplayName": "Developer Christmas Tree", "DisplayVersion": version, "Publisher": "Developer Christmas Tree", "InstallLocation": dir, "DisplayIcon": app, "UninstallString": "\"" + un + "\" /uninstall"} {
 		if e := regSet(uninstallKey, n, v); e != nil {
 			return e
 		}
 	}
-	reg("add", uninstallKey, "/v", "NoModify", "/t", "REG_DWORD", "/d", "1", "/f")
-	reg("add", uninstallKey, "/v", "NoRepair", "/t", "REG_DWORD", "/d", "1", "/f")
-	if e := link(filepath.Join(menu, "Developer Christmas Tree.lnk"), app, ""); e != nil {
-		msg("Installed, but Start menu shortcut could not be created. You can still open the settings app from the installation directory.", 0x30)
+	for _, name := range []string{"NoModify", "NoRepair"} {
+		if e := reg("add", uninstallKey, "/v", name, "/t", "REG_DWORD", "/d", "1", "/f"); e != nil {
+			return e
+		}
 	}
-	if msg("Windows 화면 보호기로 사용할까요?\n\n기존 대기 시간과 로그인 설정은 유지됩니다. 대기 시간이 없으면 10분으로 설정됩니다.", 0x24) == 6 {
-		old, has := regRead(desktop, "SCRNSAVE.EXE")
-		active, hasActive := regRead(desktop, "ScreenSaveActive")
-		timeout, hasTimeout := regRead(desktop, "ScreenSaveTimeOut")
-		seconds, errTimeout := strconv.Atoi(timeout)
-		needsTimeout := !hasTimeout || errTimeout != nil || seconds <= 0
-		if !strings.EqualFold(strings.Trim(old, "\""), scr) {
-			b, _ := json.Marshal(prior{Path: old, Active: active, Timeout: timeout, HasPath: has, HasActive: hasActive, HasTimeout: hasTimeout, ChangedTimeout: needsTimeout})
-			if e := os.WriteFile(filepath.Join(dir, "previous-saver.json"), b, 0600); e != nil {
+	if registerSaver {
+		progress("Windows 화면 보호기로 등록하는 중…")
+		previous := readSaverSettings()
+		if !strings.EqualFold(strings.Trim(previous.Path, "\""), scr) {
+			b, _ := json.Marshal(previous)
+			if e := journal.write(saverBackup, b); e != nil {
 				return e
 			}
 		}
+		journal = append(journal, func() error { return restoreSaver(previous, true) })
 		if e := regSet(desktop, "SCRNSAVE.EXE", scr); e != nil {
 			return e
 		}
 		if e := regSet(desktop, "ScreenSaveActive", "1"); e != nil {
 			return e
 		}
-		if needsTimeout {
+		if previous.ChangedTimeout {
 			if e := regSet(desktop, "ScreenSaveTimeOut", "600"); e != nil {
 				return e
 			}
@@ -159,7 +182,7 @@ func install(dir, menu string) error {
 		activate(true)
 		v, ok := regRead(desktop, "SCRNSAVE.EXE")
 		if !ok || !strings.EqualFold(strings.Trim(v, "\""), scr) {
-			return fmt.Errorf("Screen saver registry verification failed. Your device may have a policy restriction.")
+			return fmt.Errorf("화면 보호기 등록을 확인할 수 없습니다. Windows 정책을 확인하세요.")
 		}
 	}
 	return nil
@@ -176,29 +199,9 @@ func uninstall(dir, menu string) {
 		if e == nil {
 			json.Unmarshal(b, &p)
 		}
-		if p.HasPath {
-			regSet(desktop, "SCRNSAVE.EXE", p.Path)
-		} else {
-			reg("delete", desktop, "/v", "SCRNSAVE.EXE", "/f")
-		}
-		if p.ChangedTimeout {
-			if timeout, _ := regRead(desktop, "ScreenSaveTimeOut"); timeout == "600" {
-				if p.HasTimeout {
-					regSet(desktop, "ScreenSaveTimeOut", p.Timeout)
-					if n, e := strconv.Atoi(p.Timeout); e == nil && n >= 0 {
-						u.NewProc("SystemParametersInfoW").Call(15, uintptr(n), 0, 3)
-					}
-				} else {
-					reg("delete", desktop, "/v", "ScreenSaveTimeOut", "/f")
-				}
-			}
-		}
-		if p.HasActive {
-			regSet(desktop, "ScreenSaveActive", p.Active)
-			activate(p.Active == "1")
-		} else {
-			activate(false)
-			reg("delete", desktop, "/v", "ScreenSaveActive", "/f")
+		if err := restoreSaver(p, false); err != nil {
+			msg("기존 화면 보호기 설정을 복원하지 못했어요.\n"+err.Error(), 0x10)
+			return
 		}
 	}
 	for _, n := range []string{"DeveloperChristmasTree.exe", "DeveloperChristmasTree.scr", "previous-saver.json"} {
@@ -227,6 +230,16 @@ func uninstall(dir, menu string) {
 }
 func main() {
 	runtime.LockOSThread()
+	lock, _, err := kernel.NewProc("CreateMutexW").Call(0, 0, uintptr(unsafe.Pointer(str("Local\\DeveloperChristmasTree-Setup"))))
+	if lock == 0 {
+		msg("설치 동시 실행을 확인할 수 없습니다.", 0x10)
+		return
+	}
+	defer kernel.NewProc("CloseHandle").Call(lock)
+	if err == syscall.Errno(183) {
+		msg("이미 설치 또는 제거가 진행 중입니다.", 0x30)
+		return
+	}
 	local := os.Getenv("LOCALAPPDATA")
 	roam := os.Getenv("APPDATA")
 	if local == "" || roam == "" {
@@ -239,14 +252,5 @@ func main() {
 		uninstall(dir, menu)
 		return
 	}
-	if msg("Christmas Tree "+strings.TrimSuffix(version, ".0")+"을 설치할까요?\n\n기존 설정은 그대로 유지됩니다.\n실행 중인 Christmas Tree 창을 먼저 닫아 주세요.", 0x24) != 6 {
-		return
-	}
-	if e := install(dir, menu); e != nil {
-		msg("Installation could not be completed:\n"+e.Error(), 0x10)
-		return
-	}
-	if msg("설치가 끝났어요.\n\n지금 Christmas Tree를 열까요?", 0x24) == 6 {
-		open(filepath.Join(dir, "DeveloperChristmasTree.exe"), "")
-	}
+	setupWindow(dir, menu)
 }
