@@ -1,6 +1,7 @@
 import argparse
 import ctypes
 from ctypes import wintypes
+from datetime import date
 import json
 import os
 from pathlib import Path
@@ -85,6 +86,11 @@ def command(hwnd, control, notification=0):
     post(hwnd, 0x111, control | (notification << 16))
 
 
+def set_text(hwnd, value):
+    buffer = ctypes.create_unicode_buffer(value)
+    assert USER32.SendMessageW(hwnd, 0xC, 0, ctypes.addressof(buffer))
+
+
 def registry(path, name):
     try:
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, path) as key:
@@ -115,6 +121,24 @@ def verify_app(app, env, config, version):
         hwnd = window(process, "DCTMain")
         assert text(hwnd) == "Developer Christmas Tree"
         assert text(USER32.GetDlgItem(hwnd, 161)) == "v" + version
+        command(hwnd, 162)
+        assert text(USER32.GetDlgItem(hwnd, 162)) == "커플 기념일"
+        fields = {key: USER32.GetDlgItem(hwnd, key) for key in (164, 165, 166, 167)}
+        wait(lambda: USER32.IsWindowVisible(fields[164]), "커플 기념일 탭")
+        command(hwnd, 163)
+        wait(lambda: text(fields[167]) == "두 이름을 모두 입력하세요.", "이름 필수 안내")
+        set_text(fields[164], "지우")
+        set_text(fields[165], "하늘")
+        set_text(fields[166], "2999-01-01")
+        wait(lambda: "오늘이나 이전 날짜" in text(fields[167]), "미래 시작일 안내")
+        today = date.today().isoformat()
+        set_text(fields[166], today)
+        expected_caption = "지우 ♥️ 하늘  D+1일"
+        wait(lambda: text(fields[167]) == expected_caption, "한글 이름과 D+1일")
+        command(hwnd, 140)
+        expected = {"Enabled": True, "FirstName": "지우", "SecondName": "하늘", "StartDate": today}
+        wait(lambda: config.is_file() and json.loads(config.read_bytes()).get("Couple") == expected, "커플 기념일 저장")
+        print("커플 기념일 입력 검증, 한글 출력 및 설정 저장 통과", flush=True)
         combo = USER32.GetDlgItem(hwnd, 160)
         assert combo and USER32.SendMessageW(combo, 0x146, 0, 0) == 3
         for index, label in [(1, "1080p"), (2, "4K")]:
@@ -133,6 +157,20 @@ def verify_app(app, env, config, version):
             print(f"{label} 선택, 설정 저장, 전체 화면·단축키 통과", flush=True)
         post(hwnd, 0x10)
         assert process.wait(timeout=12) == 0
+    finally:
+        stop(process)
+
+    process = start(app, env)
+    try:
+        hwnd = window(process, "DCTMain")
+        command(hwnd, 162)
+        status = USER32.GetDlgItem(hwnd, 167)
+        wait(lambda: USER32.IsWindowVisible(status) and text(status) == expected_caption, "재실행 후 기념일 유지")
+        command(hwnd, 163)
+        wait(lambda: text(status).startswith("기념일을 켜면"), "기념일 끄기")
+        post(hwnd, 0x10)
+        assert process.wait(timeout=12) == 0
+        print("재실행 후 커플 기념일 복원 및 끄기 통과", flush=True)
     finally:
         stop(process)
 
@@ -227,7 +265,7 @@ def install_legacy(setup, env):
         stop(process)
 
 
-def verify_setup(setup, app, ui_only, version, legacy):
+def verify_setup(setup, app, ui_only, version, legacy, previous):
     assert SHELL.ExtractIconExW(str(setup), -1, None, None, 0) > 0
     assert SHELL.ExtractIconExW(str(app), -1, None, None, 0) > 0
     print("설치기 및 앱에서 Windows 아이콘 리소스 확인", flush=True)
@@ -277,17 +315,22 @@ def verify_setup(setup, app, ui_only, version, legacy):
         assert desktop_values() == desktop
         print("제거, 앱 설정 유지, 기존 화면 보호기 값 복원 통과", flush=True)
 
-        if legacy:
+        for old_setup, old_version in ((legacy, "2.2.0"), (previous, "2.3.0")):
+            if not old_setup:
+                continue
             try:
-                install_legacy(legacy, env)
-                assert registry(UNINSTALL, "DisplayVersion")[0] == "2.2.0"
+                if old_version == "2.2.0":
+                    install_legacy(old_setup, env)
+                else:
+                    wizard(old_setup, env, old_version, complete=True)
+                assert registry(UNINSTALL, "DisplayVersion")[0] == old_version
                 original = b'{"Theme":"Ice Blue","Message":"holiday","FPS":30}\n'
                 config.write_bytes(original)
                 wizard(setup, env, version, complete=True)
                 assert registry(UNINSTALL, "DisplayVersion")[0] == version
                 assert config.read_bytes() == original
                 assert installed_app.read_bytes() == app.read_bytes()
-                print("v2.2 덮어쓰기 및 기존 설정 바이트 보존 통과", flush=True)
+                print(f"v{old_version} 덮어쓰기 및 기존 설정 바이트 보존 통과", flush=True)
             finally:
                 uninstaller = destination / "Uninstall.exe"
                 if uninstaller.exists() and registry(UNINSTALL, "DisplayVersion") == (version, winreg.REG_SZ):
@@ -299,7 +342,8 @@ if __name__ == "__main__":
     parser.add_argument("setup", type=lambda value: Path(value).resolve())
     parser.add_argument("--app", type=lambda value: Path(value).resolve(), required=True)
     parser.add_argument("--legacy", type=lambda value: Path(value).resolve())
+    parser.add_argument("--previous", type=lambda value: Path(value).resolve())
     parser.add_argument("--version", default="2.3.0")
     parser.add_argument("--ui-only", action="store_true")
     args = parser.parse_args()
-    verify_setup(args.setup, args.app, args.ui_only, args.version, args.legacy)
+    verify_setup(args.setup, args.app, args.ui_only, args.version, args.legacy, args.previous)

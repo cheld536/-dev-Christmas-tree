@@ -59,7 +59,9 @@ func changeSettingsDPI(h uintptr, dpi int, suggested rect) {
 				roundRegion(child, layout.width, layout.height, layout.radius)
 			}
 		}
-		send(controls[idMessage], 0xd3, 1, uintptr(sc(10)))
+		for _, id := range []int{idMessage, idCoupleFirst, idCoupleSecond, idCoupleDate} {
+			send(controls[id], 0xd3, 1, uintptr(sc(10)))
+		}
 		for _, old := range oldFonts {
 			call(g, "DeleteObject", old)
 		}

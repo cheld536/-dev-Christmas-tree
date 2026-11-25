@@ -10,6 +10,7 @@ import (
 )
 
 type Settings struct {
+	Couple                                                                                  CoupleSettings
 	Theme, Direction, Custom, Background, Message, Renderer                                 string
 	Speed, LightSpeed, FPS, Size                                                            int
 	AudioPreset                                                                             string
@@ -88,6 +89,7 @@ func normalize(s Settings) Settings {
 	if len(r) > 100 {
 		s.Message = string(r[:100])
 	}
+	s.Couple = normalizeCouple(s.Couple)
 	return s
 }
 func rgb(r, g, b int) uint32 {

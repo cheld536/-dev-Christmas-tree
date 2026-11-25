@@ -46,7 +46,10 @@ func TestFullscreenResolution(t *testing.T) {
 	if w, h := fitFrame(3840, 2160, 2560, 1600); w != 2560 || h != 1440 {
 		t.Fatalf("16:10 모니터에 맞춘 4K 화면 = %d×%d", w, h)
 	}
-	if h := footerHeight(260, 170, 19, true, true); h != 38 {
+	if h := footerHeight(260, 170, 19, true, true, false); h != 38 {
 		t.Fatalf("좁은 전체 화면의 하단 높이 = %d", h)
+	}
+	if h := footerHeight(580, 432, 19, true, true, true); h != 38 {
+		t.Fatalf("기념일과 종료 안내용 하단 높이 = %d", h)
 	}
 }

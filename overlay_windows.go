@@ -6,6 +6,7 @@ import (
 	"runtime"
 	"strings"
 	"time"
+	"unicode/utf16"
 	"unsafe"
 )
 
@@ -70,7 +71,29 @@ func artAt(dc uintptr, m *mediaInfo, x, y, size int) {
 	call(g, "StretchDIBits", dc, signed(x), signed(y), uintptr(size), uintptr(size), 0, 0, uintptr(m.ArtW), uintptr(m.ArtH), uintptr(unsafe.Pointer(&m.Pixels[0])), ptr(&info), 0, 0xCC0020)
 	runtime.KeepAlive(m)
 }
-func (s *surface) drawOverlay(ww, hh, sceneH, treeH int) {
+func (s *surface) drawCoupleLine(bounds rect, couple coupleDisplay) {
+	dc := s.mem
+	old := call(g, "SelectObject", dc, s.uiFont)
+	textWidth := func(text string) int32 {
+		var size pt
+		length := len(utf16.Encode([]rune(text)))
+		call(g, "GetTextExtentPoint32W", dc, w(text), uintptr(length), ptr(&size))
+		return size.X
+	}
+	line := couple.text()
+	width, counterWidth := textWidth(line), textWidth("  "+couple.counter)
+	call(g, "SelectObject", dc, old)
+	const tint = 0xFFD4E7
+	if width <= bounds.R-bounds.L {
+		textAt(dc, s.uiFont, bounds, line, tint, 1)
+		return
+	}
+	cut := bounds.R - counterWidth
+	textAt(dc, s.uiFont, rect{bounds.L, bounds.T, cut, bounds.B}, couple.names, tint, 0)
+	textAt(dc, s.uiFont, rect{max(bounds.L, cut), bounds.T, bounds.R, bounds.B}, couple.counter, tint, 2)
+}
+
+func (s *surface) drawOverlay(ww, hh, sceneH, treeH int, couple coupleDisplay) {
 	dc := s.mem
 	if ww < 200 || hh < 120 {
 		return
@@ -167,7 +190,10 @@ func (s *surface) drawOverlay(ww, hh, sceneH, treeH int) {
 			textAt(dc, font, rect{int32(pad), int32(y), int32(ww - pad), int32(y + line)}, text, color, 1)
 			y += line
 		}
-		if code != "" {
+		if couple.names != "" {
+			s.drawCoupleLine(rect{int32(pad), int32(y), int32(ww - pad), int32(y + line)}, couple)
+			y += line
+		} else if code != "" {
 			budget := sceneH - treeH
 			if isFull {
 				budget -= line
