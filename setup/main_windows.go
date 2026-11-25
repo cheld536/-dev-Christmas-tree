@@ -121,7 +121,7 @@ func install(dir, menu string) error {
 			return e
 		}
 	}
-	for n, v := range map[string]string{"DisplayName": "Developer Christmas Tree", "DisplayVersion": "2.0.0", "Publisher": "Developer Christmas Tree", "InstallLocation": dir, "DisplayIcon": app, "UninstallString": "\"" + un + "\" /uninstall"} {
+	for n, v := range map[string]string{"DisplayName": "Developer Christmas Tree", "DisplayVersion": "2.1.0", "Publisher": "Developer Christmas Tree", "InstallLocation": dir, "DisplayIcon": app, "UninstallString": "\"" + un + "\" /uninstall"} {
 		if e := regSet(uninstallKey, n, v); e != nil {
 			return e
 		}
@@ -131,7 +131,7 @@ func install(dir, menu string) error {
 	if e := link(filepath.Join(menu, "Developer Christmas Tree.lnk"), app, ""); e != nil {
 		msg("Installed, but Start menu shortcut could not be created. You can still open the settings app from the installation directory.", 0x30)
 	}
-	if msg("Make Developer Christmas Tree your active Windows screen saver?\n\nYour existing idle timeout and password-resume policy are preserved. If no valid timeout exists, 10 minutes will be used.", 0x24) == 6 {
+	if msg("Windows 화면 보호기로 사용할까요?\n\n기존 대기 시간과 로그인 설정은 유지됩니다. 대기 시간이 없으면 10분으로 설정됩니다.", 0x24) == 6 {
 		old, has := regRead(desktop, "SCRNSAVE.EXE")
 		active, hasActive := regRead(desktop, "ScreenSaveActive")
 		timeout, hasTimeout := regRead(desktop, "ScreenSaveTimeOut")
@@ -164,7 +164,7 @@ func install(dir, menu string) error {
 	return nil
 }
 func uninstall(dir, menu string) {
-	if msg("Remove Developer Christmas Tree?\n\nYour saved presets and settings will be kept.", 0x24) != 6 {
+	if msg("Christmas Tree를 삭제할까요?\n\n저장한 설정과 프리셋은 남겨 둡니다.", 0x24) != 6 {
 		return
 	}
 	scr := filepath.Join(dir, "DeveloperChristmasTree.scr")
@@ -210,7 +210,7 @@ func uninstall(dir, menu string) {
 	os.Remove(filepath.Join(menu, "Developer Christmas Tree.lnk"))
 	os.Remove(menu)
 	reg("delete", uninstallKey, "/f")
-	msg("Developer Christmas Tree has been removed.", 0x40)
+	msg("Christmas Tree를 삭제했어요.", 0x40)
 	me, _ := os.Executable()
 	if strings.EqualFold(me, filepath.Join(dir, "Uninstall.exe")) { // remove the running uninstaller after exit, using the literal path in an environment variable.
 		c := exec.Command("powershell.exe", "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", `for($i=0;$i -lt 30;$i++){Start-Sleep -Seconds 1; try {Remove-Item -LiteralPath $env:DCT_REMOVE -Force -ErrorAction Stop; break} catch {}}`)
@@ -233,14 +233,14 @@ func main() {
 		uninstall(dir, menu)
 		return
 	}
-	if msg("Install Developer Christmas Tree 2.0?\n\nIncludes the settings app, animated Windows screen saver, and optional Start menu shortcut.\nNo Python or administrator access is required.\n\nInstall for the current Windows user?", 0x24) != 6 {
+	if msg("Christmas Tree 2.1을 설치할까요?\n\n기존 설정은 그대로 유지됩니다.\n실행 중인 Christmas Tree 창을 먼저 닫아 주세요.", 0x24) != 6 {
 		return
 	}
 	if e := install(dir, menu); e != nil {
 		msg("Installation could not be completed:\n"+e.Error(), 0x10)
 		return
 	}
-	if msg("Installation complete!\n\nOpen the live settings and preview now?", 0x24) == 6 {
+	if msg("설치가 끝났어요.\n\n지금 Christmas Tree를 열까요?", 0x24) == 6 {
 		open(filepath.Join(dir, "DeveloperChristmasTree.exe"), "")
 	}
 }

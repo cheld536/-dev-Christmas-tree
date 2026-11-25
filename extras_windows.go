@@ -1,8 +1,11 @@
 package main
 
 import (
+	"encoding/binary"
 	"fmt"
 	"math"
+	"runtime"
+	"sync/atomic"
 	"syscall"
 	"time"
 	"unsafe"
@@ -36,13 +39,15 @@ type capture struct {
 	client, reader             uintptr
 	format                     uintptr
 	channels, bits, align, tag int
+	rate                       int
+	deviceID                   string
 }
 
 var comInit bool
 
 func newCapture() *capture {
 	if !comInit {
-		r := call(ole, "CoInitializeEx", 0, 2)
+		r := acall(ole, "CoInitializeEx", 0, 2)
 		if failed(r) {
 			return nil
 		}
@@ -53,35 +58,36 @@ func newCapture() *capture {
 	iidClient := guid{0x1CB9AD4C, 0xDBFA, 0x4c32, [8]byte{0xB1, 0x78, 0xC2, 0xF5, 0x68, 0xA7, 0x03, 0xB2}}
 	iidReader := guid{0xC8ADBD64, 0xE71E, 0x48a0, [8]byte{0xA4, 0xDE, 0x18, 0x5C, 0x39, 0x5C, 0xD3, 0x17}}
 	var en, dev uintptr
-	if failed(call(ole, "CoCreateInstance", ptr(&cls), 0, 23, ptr(&iidEnum), ptr(&en))) || en == 0 {
+	if failed(acall(ole, "CoCreateInstance", aptr(&cls), 0, 23, aptr(&iidEnum), aptr(&en))) || en == 0 {
 		return nil
 	}
 	defer release(en)
-	if failed(com(en, 4, 0, 1, ptr(&dev))) || dev == 0 {
+	if failed(com(en, 4, 0, 1, aptr(&dev))) || dev == 0 {
 		return nil
 	}
 	defer release(dev)
-	c := &capture{}
-	if failed(com(dev, 3, ptr(&iidClient), 23, 0, ptr(&c.client))) || c.client == 0 {
+	c := &capture{deviceID: deviceID(dev)}
+	if failed(com(dev, 3, aptr(&iidClient), 23, 0, aptr(&c.client))) || c.client == 0 {
 		return nil
 	}
-	if failed(com(c.client, 8, ptr(&c.format))) || c.format == 0 {
+	if failed(com(c.client, 8, aptr(&c.format))) || c.format == 0 {
 		c.close()
 		return nil
 	}
 	b := unsafe.Slice((*byte)(unsafe.Pointer(c.format)), 18)
 	c.tag = int(b[0]) | int(b[1])<<8
 	c.channels = int(b[2]) | int(b[3])<<8
+	c.rate = int(binary.LittleEndian.Uint32(b[4:8]))
 	c.align = int(b[12]) | int(b[13])<<8
 	c.bits = int(b[14]) | int(b[15])<<8
 	if c.tag == 0xfffe && (int(b[16])|int(b[17])<<8) >= 22 {
 		c.tag = int(*(*uint32)(unsafe.Pointer(c.format + 24)))
 	}
-	if c.channels < 1 || c.align < 1 || c.bits < 8 || (c.tag != 1 && c.tag != 3) {
+	if c.channels < 1 || c.channels > 32 || c.rate < 8000 || c.rate > 384000 || c.align < c.channels*(c.bits/8) || (c.tag == 3 && c.bits != 32) || (c.tag == 1 && c.bits != 8 && c.bits != 16 && c.bits != 24 && c.bits != 32) || (c.tag != 1 && c.tag != 3) {
 		c.close()
 		return nil
 	}
-	if failed(com(c.client, 3, 0, 0x20000, 1000000, 0, c.format, 0)) || failed(com(c.client, 14, ptr(&iidReader), ptr(&c.reader))) || c.reader == 0 || failed(com(c.client, 10)) {
+	if failed(com(c.client, 3, 0, 0x20000, 1000000, 0, c.format, 0)) || failed(com(c.client, 14, aptr(&iidReader), aptr(&c.reader))) || c.reader == 0 || failed(com(c.client, 10)) {
 		c.close()
 		return nil
 	}
@@ -94,63 +100,187 @@ func (c *capture) close() {
 	release(c.reader)
 	release(c.client)
 	if c.format != 0 {
-		call(ole, "CoTaskMemFree", c.format)
+		acall(ole, "CoTaskMemFree", c.format)
 	}
 }
-func (c *capture) read() (float64, bool) {
-	var sum float64
+func (c *capture) read(a *analyzer) (int, bool) {
 	count := 0
 	for n := 0; n < 32; n++ {
 		var packet uint32
-		if failed(com(c.reader, 5, ptr(&packet))) {
-			return 0, false
+		if failed(com(c.reader, 5, aptr(&packet))) {
+			return count, false
 		}
 		if packet == 0 {
 			break
 		}
 		var data uintptr
 		var frames, flags uint32
-		if failed(com(c.reader, 3, ptr(&data), ptr(&frames), ptr(&flags), 0, 0)) {
-			return 0, false
+		if failed(com(c.reader, 3, aptr(&data), aptr(&frames), aptr(&flags), 0, 0)) {
+			return count, false
 		}
-		if data != 0 && flags&2 == 0 && frames < 100000 {
-			b := unsafe.Slice((*byte)(unsafe.Pointer(data)), int(frames)*c.align)
-			step := c.bits / 8
-			for i := 0; i < int(frames); i += 4 {
-				for j := 0; j < c.channels; j++ {
-					off := i*c.align + j*step
-					if off+step > len(b) {
-						continue
-					}
+		if frames < 100000 {
+			if data == 0 || flags&2 != 0 {
+				for i := 0; i < int(frames); i++ {
+					a.push(0)
+				}
+			} else {
+				b := unsafe.Slice((*byte)(unsafe.Pointer(data)), int(frames)*c.align)
+				step := c.bits / 8
+				for i := 0; i < int(frames); i++ {
 					var x float64
-					switch {
-					case c.tag == 3 && c.bits == 32:
-						x = float64(math.Float32frombits(uint32(b[off]) | uint32(b[off+1])<<8 | uint32(b[off+2])<<16 | uint32(b[off+3])<<24))
-					case c.bits == 16:
-						x = float64(int16(uint16(b[off])|uint16(b[off+1])<<8)) / 32768
-					case c.bits == 24:
-						v := int32(b[off]) | int32(b[off+1])<<8 | int32(b[off+2])<<16
-						x = float64(v<<8) / 2147483648
-					case c.bits == 32:
-						x = float64(int32(uint32(b[off])|uint32(b[off+1])<<8|uint32(b[off+2])<<16|uint32(b[off+3])<<24)) / 2147483648
-					case c.bits == 8:
-						x = (float64(b[off]) - 128) / 128
+					for j := 0; j < c.channels; j++ {
+						off := i*c.align + j*step
+						v := b[off : off+step]
+						var sample float64
+						switch {
+						case c.tag == 3:
+							sample = float64(math.Float32frombits(binary.LittleEndian.Uint32(v)))
+						case c.bits == 16:
+							sample = float64(int16(binary.LittleEndian.Uint16(v))) / 32768
+						case c.bits == 24:
+							sample = float64((int32(v[0])|int32(v[1])<<8|int32(v[2])<<16)<<8) / 2147483648
+						case c.bits == 32:
+							sample = float64(int32(binary.LittleEndian.Uint32(v))) / 2147483648
+						case c.bits == 8:
+							sample = (float64(v[0]) - 128) / 128
+						}
+						if !math.IsNaN(sample) && !math.IsInf(sample, 0) {
+							x += sample
+						}
 					}
-					if !math.IsNaN(x) && !math.IsInf(x, 0) {
-						sum += x * x
-						count++
-					}
+					a.push(x / float64(c.channels))
 				}
 			}
+			count += int(frames)
 		}
 		if failed(com(c.reader, 4, uintptr(frames))) {
-			return 0, false
+			return count, false
 		}
 	}
-	if count == 0 {
-		return 0, true
+	return count, true
+}
+
+var aKeep [128]any
+var aIndex int
+
+func aptr[T any](p *T) uintptr {
+	aKeep[aIndex%len(aKeep)] = p
+	aIndex++
+	return uintptr(unsafe.Pointer(p))
+}
+func acall(d *syscall.LazyDLL, n string, args ...uintptr) uintptr {
+	r, _, _ := d.NewProc(n).Call(args...)
+	return r
+}
+func deviceID(dev uintptr) string {
+	var p uintptr
+	if failed(com(dev, 5, aptr(&p))) || p == 0 {
+		return ""
 	}
-	return math.Min(1, math.Sqrt(sum/float64(count))*3.5), true
+	defer acall(ole, "CoTaskMemFree", p)
+	var b []uint16
+	for i := 0; i < 4096; i++ {
+		v := *(*uint16)(unsafe.Pointer(p + uintptr(i*2)))
+		if v == 0 {
+			break
+		}
+		b = append(b, v)
+	}
+	return syscall.UTF16ToString(b)
+}
+func defaultDeviceID() string {
+	cls := guid{0xBCDE0395, 0xE52F, 0x467C, [8]byte{0x8E, 0x3D, 0xC4, 0x57, 0x92, 0x91, 0x69, 0x2E}}
+	iid := guid{0xA95664D2, 0x9614, 0x4F35, [8]byte{0xA7, 0x46, 0xDE, 0x8D, 0xB6, 0x36, 0x17, 0xE6}}
+	var en, dev uintptr
+	if failed(acall(ole, "CoCreateInstance", aptr(&cls), 0, 23, aptr(&iid), aptr(&en))) || en == 0 {
+		return ""
+	}
+	defer release(en)
+	if failed(com(en, 4, 0, 1, aptr(&dev))) || dev == 0 {
+		return ""
+	}
+	defer release(dev)
+	return deviceID(dev)
+}
+
+var audioEnabled atomic.Bool
+var audioSnapshot atomic.Pointer[AudioFrame]
+var audioStop = make(chan struct{})
+var audioDone = make(chan struct{})
+
+func publishAudio(f AudioFrame) { audioSnapshot.Store(&f) }
+func audioWorker() {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	defer close(audioDone)
+	defer func() {
+		if comInit {
+			acall(ole, "CoUninitialize")
+		}
+	}()
+	var c *capture
+	defer func() {
+		if c != nil {
+			c.close()
+		}
+	}()
+	var a analyzer
+	var retry, check, last time.Time
+	t := time.NewTicker(10 * time.Millisecond)
+	defer t.Stop()
+	for {
+		select {
+		case <-audioStop:
+			return
+		case now := <-t.C:
+			if !audioEnabled.Load() {
+				if c != nil {
+					c.close()
+					c = nil
+				}
+				a = analyzer{}
+				retry = time.Time{}
+				publishAudio(AudioFrame{})
+				continue
+			}
+			if c == nil && now.After(retry) {
+				c = newCapture()
+				retry = now.Add(2 * time.Second)
+				if c != nil {
+					a = analyzer{rate: c.rate}
+					last = now
+					check = now
+				}
+			}
+			if c == nil {
+				publishAudio(AudioFrame{})
+				continue
+			}
+			if now.Sub(check) > 2*time.Second {
+				check = now
+				if id := defaultDeviceID(); id != c.deviceID {
+					c.close()
+					c = nil
+					publishAudio(AudioFrame{})
+					continue
+				}
+			}
+			n, ok := c.read(&a)
+			if !ok {
+				c.close()
+				c = nil
+				publishAudio(AudioFrame{})
+				continue
+			}
+			if n > 0 {
+				last = now
+			} else if now.Sub(last) > 100*time.Millisecond {
+				a.silence()
+			}
+			a.smooth.Connected = true
+			publishAudio(a.smooth)
+		}
+	}
 }
 
 type memStatus struct {
@@ -213,27 +343,10 @@ func updateExtras() {
 		currentStats = stats()
 		lastStats = now
 	}
-	if !cfg.Music {
-		audio = 0
-		if audioCapture != nil {
-			audioCapture.close()
-			audioCapture = nil
-		}
-		return
-	}
-	if audioCapture == nil && now.After(audioRetry) {
-		audioCapture = newCapture()
-		audioRetry = now.Add(4 * time.Second)
-	}
-	if audioCapture != nil && now.Sub(lastAudio) > 25*time.Millisecond {
-		v, ok := audioCapture.read()
-		if !ok {
-			audioCapture.close()
-			audioCapture = nil
-			audio = 0
-		} else {
-			audio = audio*.7 + v*.3
-		}
-		lastAudio = now
+	audioEnabled.Store(cfg.Music)
+	if f := audioSnapshot.Load(); f != nil {
+		audioState = reactive(cfg, *f)
+	} else {
+		audioState = AudioFrame{}
 	}
 }

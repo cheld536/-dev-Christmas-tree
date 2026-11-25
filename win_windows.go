@@ -28,7 +28,59 @@ var settingsPreview uintptr
 var previewGL bool
 var pointersKeep [2048]any
 var pointerIndex int
-var panelBrush, editBrush uintptr
+var panelBrush, editBrush, cardBrush, titleFont, sectionFont uintptr
+var uiScale = 1.0
+var buildPage, currentPage int
+var pageChildren = map[int][]uintptr{}
+var toggleState = map[int]bool{}
+var toggleIDs = map[int]bool{}
+var fullScreen, paused, overlayVisible bool
+var audioState AudioFrame
+var monoFace = "Consolas"
+var audioStatus uintptr
+var lastAudioStatus time.Time
+
+func sc(v int) int { return int(math.Round(float64(v) * uiScale)) }
+func track(h uintptr) {
+	if buildPage > 0 {
+		pageChildren[buildPage] = append(pageChildren[buildPage], h)
+	}
+}
+func chooseFont(face, fallback string, size int, weight uintptr) uintptr {
+	h := call(g, "CreateFontW", signed(-sc(size)), 0, 0, 0, weight, 0, 0, 0, 1, 0, 0, 5, 0, w(face))
+	dc := call(u, "GetDC", 0)
+	old := call(g, "SelectObject", dc, h)
+	var b [128]uint16
+	call(g, "GetTextFaceW", dc, 128, ptr(&b[0]))
+	call(g, "SelectObject", dc, old)
+	call(u, "ReleaseDC", 0, dc)
+	if !strings.EqualFold(syscall.UTF16ToString(b[:]), face) {
+		call(g, "DeleteObject", h)
+		return call(g, "CreateFontW", signed(-sc(size)), 0, 0, 0, weight, 0, 0, 0, 1, 0, 0, 5, 0, w(fallback))
+	}
+	return h
+}
+func roundRegion(h uintptr, ww, hh, r int) {
+	region := call(g, "CreateRoundRectRgn", 0, 0, uintptr(sc(ww)+1), uintptr(sc(hh)+1), uintptr(sc(r)), uintptr(sc(r)))
+	if call(u, "SetWindowRgn", h, region, 1) == 0 {
+		call(g, "DeleteObject", region)
+	}
+}
+func page(n int) {
+	currentPage = n
+	for i, hs := range pageChildren {
+		for _, h := range hs {
+			v := uintptr(0)
+			if i == n {
+				v = 5
+			}
+			call(u, "ShowWindow", h, v)
+		}
+	}
+	for _, id := range []int{idVisualPage, idAudioPage} {
+		call(u, "InvalidateRect", controls[id], 0, 1)
+	}
+}
 
 //go:uintptrescapes
 func call(d *syscall.LazyDLL, n string, a ...uintptr) uintptr {
@@ -117,10 +169,6 @@ var previewOnly bool
 var saverWindows []uintptr
 var currentStats = "CPU --  GPU --  RAM --"
 var lastStats time.Time
-var audio float64
-var audioCapture *capture
-var audioRetry time.Time
-var lastAudio time.Time
 
 func configDir() string {
 	p := os.Getenv("LOCALAPPDATA")
@@ -173,59 +221,89 @@ func window(cls, title string, style, ex uintptr, x, y, ww, hh int, parent, id u
 	return call(u, "CreateWindowExW", ex, w(cls), w(title), style, signed(x), signed(y), signed(ww), signed(hh), parent, id, inst, 0)
 }
 func child(cls, title string, style uintptr, x, y, ww, hh, id int) uintptr {
-	h := window(cls, title, wsChild|wsVisible|style, 0, x, y, ww, hh, mainwin, uintptr(id))
+	h := window(cls, title, wsChild|wsVisible|style, 0, sc(x), sc(y), sc(ww), sc(hh), mainwin, uintptr(id))
+	track(h)
 	if id > 0 {
 		controls[id] = h
 	}
 	send(h, wmSetFont, font, 1)
-	if cls == "BUTTON" || cls == "COMBOBOX" || cls == "EDIT" || cls == "msctls_trackbar32" {
+	if cls == "COMBOBOX" || cls == "EDIT" {
 		call(syscall.NewLazyDLL("uxtheme.dll"), "SetWindowTheme", h, w("DarkMode_Explorer"), 0)
 	}
 	return h
 }
 func label(s string, x, y, ww, hh int) { child("STATIC", s, 0, x, y, ww, hh, 0) }
+func heading(s string, x, y, ww, hh int, f uintptr) {
+	h := child("STATIC", s, 0, x, y, ww, hh, 0)
+	send(h, wmSetFont, f, 1)
+}
 func combo(id, x, y int, items []string) {
 	h := child("COMBOBOX", "", wsTab|wsVScroll|3, x, y, 230, 250, id)
-	for _, s := range items {
+	for i, s := range items {
+		if id == idTheme {
+			s = []string{"무지개", "클래식 크리스마스", "아이스 블루", "사이버펑크", "골드 & 화이트", "매트릭스 그린", "직접 선택"}[i]
+		}
+		if id == idDir {
+			s = []string{"시계 방향", "반시계 방향", "정지"}[i]
+		}
+		if id == idRenderer {
+			s = []string{"OpenGL (자동)", "GDI (호환 모드)"}[i]
+		}
 		send(h, 0x143, 0, w(s))
 	}
 }
 func slider(id, x, y, min, max int) {
-	h := child("msctls_trackbar32", "", wsTab|1, x, y, 188, 28, id)
+	h := child("DCTSlider", "", wsTab, x, y, 188, 28, id)
 	send(h, 0x407, 1, uintptr(min))
 	send(h, 0x408, 1, uintptr(max))
 	child("STATIC", "", 0, x+190, y+4, 65, 23, id+100)
 }
-func check(id, x, y int, s string)      { child("BUTTON", s, wsTab|3, x, y, 172, 23, id) }
-func button(id, x, y, ww int, s string) { child("BUTTON", s, wsTab, x, y, ww, 31, id) }
+func check(id, x, y int, s string) {
+	toggleIDs[id] = true
+	child("BUTTON", s, wsTab|0xB, x, y, 200, 31, id)
+}
+func button(id, x, y, ww int, s string) { child("BUTTON", s, wsTab|0xB, x, y, ww, 36, id) }
+func setToggle(id int, v bool)          { toggleState[id] = v; call(u, "InvalidateRect", controls[id], 0, 1) }
 
 const (
-	idTheme    = 101
-	idDir      = 102
-	idRenderer = 103
-	idSpeed    = 110
-	idLight    = 111
-	idFPS      = 112
-	idSize     = 113
-	idSnow     = 120
-	idOrn      = 121
-	idMsg      = 122
-	idBloom    = 123
-	idMatrix   = 124
-	idCount    = 125
-	idMonitor  = 126
-	idMusic    = 127
-	idMulti    = 128
-	idPhysics  = 129
-	idCustom   = 130
-	idBG       = 131
-	idMessage  = 132
-	idSave     = 140
-	idReset    = 141
-	idTest     = 142
-	idExport   = 143
-	idImport   = 144
-	idWindows  = 145
+	idTheme       = 101
+	idDir         = 102
+	idRenderer    = 103
+	idSpeed       = 110
+	idLight       = 111
+	idFPS         = 112
+	idSize        = 113
+	idSnow        = 120
+	idOrn         = 121
+	idMsg         = 122
+	idBloom       = 123
+	idMatrix      = 124
+	idCount       = 125
+	idMonitor     = 126
+	idMusic       = 127
+	idMulti       = 128
+	idPhysics     = 129
+	idCustom      = 130
+	idBG          = 131
+	idMessage     = 132
+	idSave        = 140
+	idReset       = 141
+	idTest        = 142
+	idExport      = 143
+	idImport      = 144
+	idWindows     = 145
+	idFull        = 146
+	idVisualPage  = 147
+	idAudioPage   = 148
+	idAudioPreset = 150
+	idAudioGain   = 151
+	idBassGain    = 152
+	idMidGain     = 153
+	idHighGain    = 154
+	idSpectrum    = 155
+	idBPM         = 156
+	idSafe        = 157
+	idLowPower    = 158
 )
 
 func selectCombo(id int, items []string, s string) {
@@ -247,18 +325,15 @@ func uiSet() {
 	selectCombo(idTheme, themes, cfg.Theme)
 	selectCombo(idDir, directions, cfg.Direction)
 	selectCombo(idRenderer, renderers, cfg.Renderer)
-	for id, v := range map[int]int{idSpeed: cfg.Speed, idLight: cfg.LightSpeed, idFPS: cfg.FPS, idSize: cfg.Size} {
+	selectCombo(idAudioPreset, audioPresets, cfg.AudioPreset)
+	for id, v := range map[int]int{idSpeed: cfg.Speed, idLight: cfg.LightSpeed, idFPS: cfg.FPS, idSize: cfg.Size, idAudioGain: cfg.AudioGain, idBassGain: cfg.BassGain, idMidGain: cfg.MidGain, idHighGain: cfg.HighGain} {
 		send(controls[id], 0x405, 1, uintptr(v))
 	}
-	for id, v := range map[int]bool{idSnow: cfg.Snow, idOrn: cfg.Ornaments, idMsg: cfg.Messages, idBloom: cfg.Bloom, idMatrix: cfg.Matrix, idCount: cfg.Countdown, idMonitor: cfg.Monitor, idMusic: cfg.Music, idMulti: cfg.Multi, idPhysics: cfg.SnowPhysics} {
-		val := uintptr(0)
-		if v {
-			val = 1
-		}
-		send(controls[id], 0xf1, val, 0)
+	for id, v := range map[int]bool{idSnow: cfg.Snow, idOrn: cfg.Ornaments, idMsg: cfg.Messages, idBloom: cfg.Bloom, idMatrix: cfg.Matrix, idCount: cfg.Countdown, idMonitor: cfg.Monitor, idMusic: cfg.Music, idMulti: cfg.Multi, idPhysics: cfg.SnowPhysics, idSpectrum: cfg.Spectrum, idBPM: cfg.ShowBPM, idSafe: cfg.SafeLights, idLowPower: cfg.LowPower} {
+		setToggle(id, v)
 	}
-	set(controls[idCustom], "Tree: "+cfg.Custom)
-	set(controls[idBG], "Background: "+cfg.Background)
+	set(controls[idCustom], "트리 색상  "+cfg.Custom)
+	set(controls[idBG], "배경 색상  "+cfg.Background)
 	set(controls[idMessage], cfg.Message)
 	uiRead()
 }
@@ -269,20 +344,21 @@ func uiRead() {
 	cfg.Theme = comboVal(idTheme, themes)
 	cfg.Direction = comboVal(idDir, directions)
 	cfg.Renderer = comboVal(idRenderer, renderers)
-	for id, p := range map[int]*int{idSpeed: &cfg.Speed, idLight: &cfg.LightSpeed, idFPS: &cfg.FPS, idSize: &cfg.Size} {
+	cfg.AudioPreset = comboVal(idAudioPreset, audioPresets)
+	for id, p := range map[int]*int{idSpeed: &cfg.Speed, idLight: &cfg.LightSpeed, idFPS: &cfg.FPS, idSize: &cfg.Size, idAudioGain: &cfg.AudioGain, idBassGain: &cfg.BassGain, idMidGain: &cfg.MidGain, idHighGain: &cfg.HighGain} {
 		*p = int(send(controls[id], 0x400, 0, 0))
 		s := fmt.Sprint(*p)
 		if id == idSpeed || id == idLight {
 			s = fmt.Sprintf("%.2fx", float64(*p)/100)
-		} else if id == idSize {
+		} else if id == idSize || (id >= idAudioGain && id <= idHighGain) {
 			s += "%"
 		}
 		if txt(controls[id+100]) != s {
 			set(controls[id+100], s)
 		}
 	}
-	for id, p := range map[int]*bool{idSnow: &cfg.Snow, idOrn: &cfg.Ornaments, idMsg: &cfg.Messages, idBloom: &cfg.Bloom, idMatrix: &cfg.Matrix, idCount: &cfg.Countdown, idMonitor: &cfg.Monitor, idMusic: &cfg.Music, idMulti: &cfg.Multi, idPhysics: &cfg.SnowPhysics} {
-		*p = send(controls[id], 0xf0, 0, 0) == 1
+	for id, p := range map[int]*bool{idSnow: &cfg.Snow, idOrn: &cfg.Ornaments, idMsg: &cfg.Messages, idBloom: &cfg.Bloom, idMatrix: &cfg.Matrix, idCount: &cfg.Countdown, idMonitor: &cfg.Monitor, idMusic: &cfg.Music, idMulti: &cfg.Multi, idPhysics: &cfg.SnowPhysics, idSpectrum: &cfg.Spectrum, idBPM: &cfg.ShowBPM, idSafe: &cfg.SafeLights, idLowPower: &cfg.LowPower} {
+		*p = toggleState[id]
 	}
 	cfg.Message = txt(controls[idMessage])
 	cfg = normalize(cfg)
@@ -313,10 +389,10 @@ func chooseColor(id int) {
 		v := fmt.Sprintf("#%06X", cr(cc.RGB))
 		if id == idBG {
 			cfg.Background = v
-			set(controls[id], "Background: "+v)
+			set(controls[id], "배경 색상  "+v)
 		} else {
 			cfg.Custom = v
-			set(controls[id], "Tree: "+v)
+			set(controls[id], "트리 색상  "+v)
 			selectCombo(idTheme, themes, "Custom")
 		}
 	}
@@ -362,6 +438,11 @@ func fileDialog(export bool) string {
 	return ""
 }
 func command(id int) {
+	if toggleIDs[id] {
+		setToggle(id, !toggleState[id])
+		uiRead()
+		return
+	}
 	uiRead()
 	switch id {
 	case idCustom, idBG:
@@ -370,13 +451,21 @@ func command(id int) {
 		if e := save(configPath(), cfg); e != nil {
 			box(mainwin, e.Error(), 0x10)
 		} else {
-			box(mainwin, "설정을 저장했습니다.", 0x40)
+			set(controls[idSave], "저장됨")
+			lastSaved = time.Now()
 		}
 	case idReset:
 		cfg = defaults()
 		uiSet()
 	case idTest:
+		fullScreen = false
 		startSaver(false, 0)
+	case idFull:
+		openFull()
+	case idVisualPage:
+		page(1)
+	case idAudioPage:
+		page(2)
 	case idExport:
 		if p := fileDialog(true); p != "" {
 			if e := save(p, cfg); e != nil {
@@ -397,69 +486,107 @@ func command(id int) {
 		call(shell, "ShellExecuteW", mainwin, w("open"), w("control.exe"), w("desk.cpl,,@screensaver"), 0, 1)
 	}
 }
+
+var lastSaved time.Time
+
+const previewX, previewY, previewW, previewH = 30, 112, 580, 502
+
 func setupUI() {
 	var work rect
 	call(u, "SystemParametersInfoW", 0x30, 0, ptr(&work), 0)
-	x := int(work.L) + (int(work.R-work.L)-1120)/2
-	y := int(work.T) + (int(work.B-work.T)-765)/2
-	if x < int(work.L) {
-		x = int(work.L)
+	uiScale = math.Min(1, math.Min(float64(work.R-work.L-8)/1120, float64(work.B-work.T-8)/770))
+	if uiScale < .45 {
+		uiScale = .45
 	}
-	if y < int(work.T) {
-		y = int(work.T)
-	}
-	mainwin = window("DCTMain", "Developer Christmas Tree  |  Settings", 0x00CA0000, 0, x, y, 1120, 765, 0, 0)
+	x := int(work.L) + (int(work.R-work.L)-sc(1120))/2
+	y := int(work.T) + (int(work.B-work.T)-sc(770))/2
+	mainwin = window("DCTMain", "Christmas Tree  •  2.1", 0x02CA0000, 0, x, y, sc(1120), sc(770), 0, 0)
 	if mainwin == 0 {
-		box(0, "Unable to create settings window.", 0x10)
+		box(0, "설정 창을 열 수 없어요.", 0x10)
 		return
 	}
 	dark := int32(1)
-	call(syscall.NewLazyDLL("dwmapi.dll"), "DwmSetWindowAttribute", mainwin, 20, ptr(&dark), 4)
-	font = call(g, "CreateFontW", signed(-16), 0, 0, 0, 400, 0, 0, 0, 1, 0, 0, 5, 0, w("Segoe UI"))
-	label("실시간 미리보기  /  3D ASCII RENDERER", 20, 12, 620, 24)
-	p := window("DCTRender", "", wsChild|wsVisible|wsBorder, 0, 20, 40, 600, 626, mainwin, 0)
+	dwm := syscall.NewLazyDLL("dwmapi.dll")
+	call(dwm, "DwmSetWindowAttribute", mainwin, 20, ptr(&dark), 4)
+	corner := int32(2)
+	call(dwm, "DwmSetWindowAttribute", mainwin, 33, ptr(&corner), 4)
+	font = chooseFont("Segoe UI Variable Text", "Segoe UI", 16, 400)
+	titleFont = chooseFont("Segoe UI Variable Display", "Segoe UI", 28, 600)
+	sectionFont = chooseFont("Segoe UI Variable Text", "Segoe UI", 19, 600)
+	heading("Christmas Tree", 25, 13, 285, 37, titleFont)
+	label("2.1", 312, 25, 100, 23)
+	heading("미리보기", 30, 78, 210, 28, sectionFont)
+	audioStatus = child("STATIC", "", 0, 290, 82, 320, 22, 0)
+	p := window("DCTRender", "", wsChild|wsVisible, 0, sc(previewX), sc(previewY), sc(previewW), sc(previewH), mainwin, 0)
+	roundRegion(p, previewW, previewH, 20)
 	addSurface(p, false)
 	settingsPreview = p
 	previewGL = wantsGL()
-	label("트리 설정", 640, 12, 430, 24)
-	label("색상 테마", 640, 43, 150, 22)
-	combo(idTheme, 790, 40, themes)
-	label("회전 방향", 640, 81, 150, 22)
-	combo(idDir, 790, 78, directions)
-	label("렌더링 방식", 640, 119, 150, 22)
-	combo(idRenderer, 790, 116, renderers)
-	label("회전 속도", 640, 157, 150, 22)
-	slider(idSpeed, 790, 151, 0, 400)
-	label("조명 변화 속도", 640, 194, 150, 22)
-	slider(idLight, 790, 188, 0, 400)
-	label("목표 FPS", 640, 231, 150, 22)
-	slider(idFPS, 790, 225, 10, 144)
-	label("트리 크기", 640, 268, 150, 22)
-	slider(idSize, 790, 262, 45, 100)
-	button(idCustom, 640, 302, 195, "Tree color")
-	button(idBG, 846, 302, 195, "Background")
-	label("시각 효과", 640, 347, 400, 22)
-	check(idSnow, 640, 374, "눈 내리기")
-	check(idOrn, 837, 374, "코드 장식")
-	check(idMsg, 640, 401, "메시지 표시")
-	check(idBloom, 837, 401, "LED 빛 번짐")
-	check(idMatrix, 640, 428, "매트릭스 레인")
-	check(idCount, 837, 428, "크리스마스 D-Day")
-	check(idMonitor, 640, 455, "CPU / GPU / RAM")
-	check(idMusic, 837, 455, "시스템 음악 반응")
-	check(idMulti, 640, 482, "다중 모니터")
-	check(idPhysics, 837, 482, "바람 및 눈 쌓임")
-	label("사용자 메시지 (비워 두면 개발자 문구 순환)", 640, 518, 440, 24)
-	h := child("EDIT", "", wsTab|wsBorder|0x80, 640, 543, 401, 28, idMessage)
+	button(idFull, 30, 628, 180, "전체 화면   F11")
+	button(idTest, 220, 628, 180, "화면 보호기 미리보기")
+	button(idWindows, 410, 628, 200, "Windows 화면 보호기")
+	label("Esc  닫기     H  단축키 보기", 30, 675, 580, 24)
+	button(idVisualPage, 649, 78, 210, "트리와 조명")
+	button(idAudioPage, 869, 78, 207, "음악과 효과")
+	buildPage = 1
+	label("테마", 649, 128, 140, 22)
+	combo(idTheme, 805, 125, themes)
+	label("회전 방향", 649, 165, 140, 22)
+	combo(idDir, 805, 162, directions)
+	label("렌더링", 649, 202, 140, 22)
+	combo(idRenderer, 805, 199, renderers)
+	label("회전 속도", 649, 244, 140, 22)
+	slider(idSpeed, 805, 237, 0, 400)
+	label("조명 속도", 649, 279, 140, 22)
+	slider(idLight, 805, 272, 0, 400)
+	label("프레임", 649, 314, 140, 22)
+	slider(idFPS, 805, 307, 10, 144)
+	label("트리 크기", 649, 349, 140, 22)
+	slider(idSize, 805, 342, 45, 100)
+	button(idCustom, 649, 379, 210, "트리 색상")
+	button(idBG, 869, 379, 207, "배경 색상")
+	heading("분위기", 649, 432, 420, 26, sectionFont)
+	check(idSnow, 649, 466, "눈 내리기")
+	check(idOrn, 869, 466, "코드 장식")
+	check(idMsg, 649, 502, "인사말 표시")
+	check(idBloom, 869, 502, "빛 번짐")
+	check(idMatrix, 649, 538, "코드 비")
+	check(idCount, 869, 538, "크리스마스 D-Day")
+	label("나만의 문구 (선택)", 649, 580, 400, 22)
+	h := child("EDIT", "", wsTab|0x80, 649, 608, 427, 32, idMessage)
 	send(h, 0xc5, 100, 0)
-	button(idSave, 640, 588, 124, "설정 저장")
-	button(idReset, 773, 588, 124, "기본값 복원")
-	button(idTest, 906, 588, 135, "전체 화면 테스트")
-	button(idExport, 640, 627, 124, "프리셋 내보내기")
-	button(idImport, 773, 627, 124, "프리셋 불러오기")
-	button(idWindows, 906, 627, 135, "Windows 설정")
-	label("설정은 실시간 반영됩니다. 자동 화면 보호기에 적용하려면 저장하세요.  Esc 또는 마우스 이동으로 종료합니다.", 20, 680, 1050, 24)
+	send(h, 0xd3, 1, uintptr(sc(10)))
+	roundRegion(h, 427, 32, 12)
+	buildPage = 2
+	check(idMusic, 649, 125, "음악 반응")
+	label("재생 중인 소리를 사용해요. 마이크는 필요 없어요.", 649, 163, 427, 24)
+	label("음악 스타일", 649, 202, 145, 22)
+	combo(idAudioPreset, 805, 199, audioPresets)
+	label("반응 강도", 649, 244, 140, 22)
+	slider(idAudioGain, 805, 237, 0, 200)
+	label("저음", 649, 279, 140, 22)
+	slider(idBassGain, 805, 272, 0, 200)
+	label("중음", 649, 314, 140, 22)
+	slider(idMidGain, 805, 307, 0, 200)
+	label("고음", 649, 349, 140, 22)
+	slider(idHighGain, 805, 342, 0, 200)
+	label("저음·중음·고음은 '직접 설정'에서 적용돼요.", 649, 381, 427, 24)
+	heading("화면 옵션", 649, 425, 400, 26, sectionFont)
+	check(idSpectrum, 649, 459, "스펙트럼 링")
+	check(idBPM, 869, 459, "BPM 표시")
+	check(idSafe, 649, 495, "빛 변화 줄이기")
+	check(idLowPower, 869, 495, "저전력 모드")
+	check(idMonitor, 649, 531, "시스템 사용량")
+	check(idMulti, 869, 531, "모든 모니터")
+	check(idPhysics, 649, 567, "바람과 눈 쌓임")
+	label("무음 상태에서는 기본 애니메이션이 재생돼요.", 649, 611, 427, 24)
+	buildPage = 0
+	button(idSave, 649, 655, 101, "저장")
+	button(idReset, 757, 655, 100, "초기화")
+	button(idExport, 864, 655, 102, "내보내기")
+	button(idImport, 973, 655, 103, "불러오기")
 	uiSet()
+	page(1)
 	call(u, "ShowWindow", mainwin, 5)
 	call(u, "UpdateWindow", mainwin)
 }
@@ -489,7 +616,8 @@ func refreshPreview() {
 		a = sf.angle
 	}
 	call(u, "DestroyWindow", old)
-	settingsPreview = window("DCTRender", "", wsChild|wsVisible|wsBorder, 0, 20, 40, 600, 626, mainwin, 0)
+	settingsPreview = window("DCTRender", "", wsChild|wsVisible, 0, sc(previewX), sc(previewY), sc(previewW), sc(previewH), mainwin, 0)
+	roundRegion(settingsPreview, previewW, previewH, 20)
 	addSurface(settingsPreview, false)
 	if sf := surfaces[settingsPreview]; sf != nil {
 		sf.angle = a
@@ -502,11 +630,79 @@ func addSurface(h uintptr, saver bool) {
 	surfaces[h] = &surface{hwnd: h, dc: call(u, "GetDC", h), saver: saver, last: time.Now(), begin: time.Now()}
 
 }
+func openFull() {
+	if len(saverWindows) > 0 {
+		return
+	}
+	uiRead()
+	fullScreen = true
+	paused = false
+	overlayVisible = false
+	startSaver(false, 0)
+	if len(saverWindows) == 0 {
+		fullScreen = false
+	}
+}
+func fullKey(key uintptr) {
+	switch key {
+	case 0x1B, 0x7A:
+		stopSaver()
+		return
+	case 0x20:
+		paused = !paused
+	case 0x26:
+		cfg.Speed = clamp(cfg.Speed+25, 0, 400)
+	case 0x28:
+		cfg.Speed = clamp(cfg.Speed-25, 0, 400)
+	case 0x25:
+		cfg.Direction = directions[1]
+	case 0x27:
+		cfg.Direction = directions[0]
+	case 'C':
+		for i, t := range themes {
+			if t == cfg.Theme {
+				cfg.Theme = themes[(i+1)%len(themes)]
+				break
+			}
+		}
+	case 'S':
+		cfg.Snow = !cfg.Snow
+	case 'M':
+		cfg.Matrix = !cfg.Matrix
+	case 'B':
+		cfg.Bloom = !cfg.Bloom
+	case 'H':
+		overlayVisible = !overlayVisible
+	case 'A':
+		cfg.Music = !cfg.Music
+	case 9:
+		cfg.Monitor = !cfg.Monitor
+	case 'P':
+		for i, t := range audioPresets {
+			if t == cfg.AudioPreset {
+				cfg.AudioPreset = audioPresets[(i+1)%len(audioPresets)]
+				break
+			}
+		}
+	case 'V':
+		cfg.Spectrum = !cfg.Spectrum
+	case 'G':
+		cfg.AudioGain = clamp(cfg.AudioGain+25, 0, 200)
+	case 'J':
+		cfg.AudioGain = clamp(cfg.AudioGain-25, 0, 200)
+	}
+	if mainwin != 0 {
+		uiSet()
+	}
+}
 func stopSaver() {
 	for _, h := range saverWindows {
 		call(u, "DestroyWindow", h)
 	}
 	saverWindows = nil
+	fullScreen = false
+	paused = false
+	overlayVisible = false
 	if !previewOnly {
 		call(u, "ShowCursor", 1)
 	}
@@ -586,13 +782,13 @@ func renderProc(h, m, a, b uintptr) uintptr {
 					call(u, "MoveWindow", h, 0, 0, uintptr(r.R), uintptr(r.B), 1)
 				}
 			}
-			if mainwin != 0 && time.Since(lastUI) > 30*time.Millisecond {
+			if mainwin != 0 && !fullScreen && time.Since(lastUI) > 100*time.Millisecond {
 				uiRead()
 				lastUI = time.Now()
 			}
 			updateExtras()
 			sf.draw(false)
-			if sf.saver && !previewOnly && time.Now().After(exitAt) {
+			if sf.saver && !previewOnly && !fullScreen && time.Now().After(exitAt) {
 				var p pt
 				call(u, "GetCursorPos", ptr(&p))
 				if math.Abs(float64(p.X-mouseStart.X))+math.Abs(float64(p.Y-mouseStart.Y)) > 7 {
@@ -602,6 +798,14 @@ func renderProc(h, m, a, b uintptr) uintptr {
 		}
 		return 0
 	case wmKey, wmSysKey, 0x201, 0x204, 0x207:
+		if sf != nil && sf.saver && fullScreen {
+			if m == wmKey || m == wmSysKey {
+				if b&(1<<30) == 0 || (a >= 0x25 && a <= 0x28) || a == 'G' || a == 'J' {
+					fullKey(a)
+				}
+			}
+			return 0
+		}
 		if sf != nil && sf.saver && !previewOnly && time.Now().After(exitAt) {
 			stopSaver()
 			return 0
@@ -625,16 +829,35 @@ func renderProc(h, m, a, b uintptr) uintptr {
 }
 func mainProc(h, m, a, b uintptr) uintptr {
 	switch m {
+	case wmPaint:
+		var p paint
+		call(u, "BeginPaint", h, ptr(&p))
+		rounded(p.DC, rect{int32(sc(16)), int32(sc(62)), int32(sc(624)), int32(sc(706))}, 24, 0x19252A)
+		rounded(p.DC, rect{int32(sc(634)), int32(sc(62)), int32(sc(1090)), int32(sc(706))}, 24, 0x19252A)
+		call(u, "EndPaint", h, ptr(&p))
+		return 0
+	case 0x2B:
+		di := (*drawItem)(unsafe.Pointer(b))
+		drawControl(di)
+		return 1
 	case 0x0138, 0x0135, 0x0134: // static / dialog / list box
-		call(g, "SetTextColor", a, cr(0xE5EDF7))
-		call(g, "SetBkColor", a, cr(0x111D2B))
-		return panelBrush
+		call(g, "SetTextColor", a, cr(0xE9F0ED))
+		var r rect
+		call(u, "GetWindowRect", b, ptr(&r))
+		p := pt{r.L, r.T}
+		call(u, "ScreenToClient", h, ptr(&p))
+		if p.Y < int32(sc(60)) {
+			call(g, "SetBkColor", a, cr(0x101A1E))
+			return panelBrush
+		}
+		call(g, "SetBkColor", a, cr(0x19252A))
+		return cardBrush
 	case 0x0133: // edit
-		call(g, "SetTextColor", a, cr(0xE5EDF7))
-		call(g, "SetBkColor", a, cr(0x203145))
+		call(g, "SetTextColor", a, cr(0xE9F0ED))
+		call(g, "SetBkColor", a, cr(0x28373D))
 		return editBrush
 	case wmCommand:
-		if high(a) == 0 && low(a) >= 130 && low(a) <= 145 {
+		if high(a) == 0 && (toggleIDs[low(a)] || (low(a) >= 130 && low(a) <= 148)) {
 			command(low(a))
 		}
 		return 0
@@ -661,10 +884,13 @@ func main() {
 	call(u, "SetProcessDPIAware")
 	inst = call(k, "GetModuleHandleW", 0)
 	syscall.NewLazyDLL("comctl32.dll").NewProc("InitCommonControls").Call()
-	panelBrush = call(g, "CreateSolidBrush", cr(0x111D2B))
-	editBrush = call(g, "CreateSolidBrush", cr(0x203145))
+	panelBrush = call(g, "CreateSolidBrush", cr(0x101A1E))
+	cardBrush = call(g, "CreateSolidBrush", cr(0x19252A))
+	probeMono()
+	editBrush = call(g, "CreateSolidBrush", cr(0x28373D))
 	register("DCTMain", syscall.NewCallback(mainProc), 3, panelBrush)
 	register("DCTRender", syscall.NewCallback(renderProc), 0x23, 0)
+	register("DCTSlider", syscall.NewCallback(sliderProc), 3, cardBrush)
 	cfg, _ = load(configPath())
 	arg := ""
 	if len(os.Args) > 1 {
@@ -698,6 +924,7 @@ func main() {
 			return
 		}
 	}
+	go audioWorker()
 	var m msg
 	mm := syscall.NewLazyDLL("winmm.dll")
 	call(mm, "timeBeginPeriod", 1)
@@ -708,19 +935,270 @@ loop:
 			if m.M == 0x12 {
 				break loop
 			}
+			if mainwin != 0 && len(saverWindows) == 0 && m.M == wmKey && m.W == 0x7A {
+				openFull()
+				continue
+			}
 			if mainwin != 0 && len(saverWindows) == 0 && call(u, "IsDialogMessageW", mainwin, ptr(&m)) != 0 {
 				continue
 			}
 			call(u, "TranslateMessage", ptr(&m))
 			call(u, "DispatchMessageW", ptr(&m))
 		}
-		refreshPreview()
+		if len(saverWindows) == 0 {
+			refreshPreview()
+		}
+		if mainwin != 0 && time.Since(lastAudioStatus) > 250*time.Millisecond {
+			status := "음악 반응 꺼짐"
+			if cfg.Music {
+				status = "오디오 연결 대기"
+				if audioState.Connected {
+					status = "소리 대기 중"
+					if audioState.Active {
+						status = "소리 감지됨"
+					}
+				}
+			}
+			if txt(audioStatus) != status {
+				set(audioStatus, status)
+			}
+			if !lastSaved.IsZero() && time.Since(lastSaved) > 2*time.Second {
+				set(controls[idSave], "저장")
+				lastSaved = time.Time{}
+			}
+			lastAudioStatus = time.Now()
+		}
 		for h := range surfaces {
+			if len(saverWindows) > 0 && h == settingsPreview {
+				continue
+			}
 			renderProc(h, wmTimer, 0, 0)
 		}
 		call(u, "MsgWaitForMultipleObjectsEx", 0, 0, 3, 0x04FF, 4)
 	}
-	if audioCapture != nil {
-		audioCapture.close()
+	close(audioStop)
+	<-audioDone
+}
+
+type drawItem struct {
+	CtlType, CtlID, ItemID, Action, State uint32
+	Hwnd, DC                              uintptr
+	R                                     rect
+	Data                                  uintptr
+}
+
+func rounded(dc uintptr, r rect, radius int, c uint32) {
+	brush := call(g, "CreateSolidBrush", cr(c))
+	old := call(g, "SelectObject", dc, brush)
+	pen := call(g, "SelectObject", dc, call(g, "GetStockObject", 8))
+	call(g, "RoundRect", dc, signed(int(r.L)), signed(int(r.T)), signed(int(r.R)), signed(int(r.B)), uintptr(sc(radius)), uintptr(sc(radius)))
+	call(g, "SelectObject", dc, pen)
+	call(g, "SelectObject", dc, old)
+	call(g, "DeleteObject", brush)
+}
+func drawControl(d *drawItem) {
+	id := int(d.CtlID)
+	dc := d.DC
+	r := d.R
+	call(u, "FillRect", dc, ptr(&r), cardBrush)
+	old := call(g, "SelectObject", dc, font)
+	call(g, "SetBkMode", dc, 1)
+	fg := uint32(0xE9F0ED)
+	bg := uint32(0x2B3B41)
+	active := id == idFull || id == idSave || (id == idVisualPage && currentPage == 1) || (id == idAudioPage && currentPage == 2)
+	if toggleIDs[id] {
+		on := toggleState[id]
+		tr := rect{r.L + int32(sc(2)), r.T + int32(sc(7)), r.L + int32(sc(38)), r.B - int32(sc(7))}
+		if on {
+			bg = 0xA1E6C5
+		}
+		rounded(dc, tr, 20, bg)
+		knob := tr
+		knob.L += int32(sc(3))
+		knob.R = knob.L + int32(sc(11))
+		knob.T += int32(sc(3))
+		knob.B -= int32(sc(3))
+		if on {
+			knob.R = tr.R - int32(sc(3))
+			knob.L = knob.R - int32(sc(11))
+		}
+		rounded(dc, knob, 14, 0xF5FAF7)
+		r.L += int32(sc(46))
+		call(g, "SetTextColor", dc, cr(fg))
+		call(u, "DrawTextW", dc, w(txt(d.Hwnd)), signed(-1), ptr(&r), 0x824)
+		if d.State&0x10 != 0 {
+			call(u, "DrawFocusRect", dc, ptr(&r))
+		}
+	} else {
+		if active {
+			bg = 0xA1E6C5
+			fg = 0x12251F
+		}
+		if d.State&1 != 0 {
+			bg = shade(bg, .82)
+		}
+		r.R--
+		r.B--
+		rounded(dc, r, 16, bg)
+		call(g, "SetTextColor", dc, cr(fg))
+		call(u, "DrawTextW", dc, w(txt(d.Hwnd)), signed(-1), ptr(&r), 0x825)
+		if d.State&0x10 != 0 {
+			r.L += int32(sc(5))
+			r.T += int32(sc(4))
+			r.R -= int32(sc(5))
+			r.B -= int32(sc(4))
+			call(u, "DrawFocusRect", dc, ptr(&r))
+		}
 	}
+	call(g, "SelectObject", dc, old)
+}
+func probeMono() {
+	dc := call(u, "GetDC", 0)
+	f := call(g, "CreateFontW", signed(-16), 0, 0, 0, 400, 0, 0, 0, 1, 0, 0, 5, 0x31, w("Cascadia Mono"))
+	old := call(g, "SelectObject", dc, f)
+	var b [128]uint16
+	call(g, "GetTextFaceW", dc, 128, ptr(&b[0]))
+	if strings.EqualFold(syscall.UTF16ToString(b[:]), "Cascadia Mono") {
+		monoFace = "Cascadia Mono"
+	}
+	call(g, "SelectObject", dc, old)
+	call(g, "DeleteObject", f)
+	call(u, "ReleaseDC", 0, dc)
+}
+
+type sliderState struct {
+	min, max, pos int
+	drag          bool
+}
+
+var sliders = map[uintptr]*sliderState{}
+
+func sliderProc(h, m, a, b uintptr) uintptr {
+	s := sliders[h]
+	if s == nil {
+		s = &sliderState{min: 0, max: 100}
+		sliders[h] = s
+	}
+	redraw := func() { call(u, "InvalidateRect", h, 0, 0) }
+	change := func(v int) {
+		v = clamp(v, s.min, s.max)
+		if v != s.pos {
+			s.pos = v
+			redraw()
+		}
+	}
+	fromX := func(x int) {
+		r := client(h)
+		pad := sc(10)
+		span := int(r.R) - 2*pad
+		if span > 0 {
+			change(s.min + int(math.Round(float64(x-pad)/float64(span)*float64(s.max-s.min))))
+		}
+	}
+	switch m {
+	case 0x400:
+		return uintptr(s.pos)
+	case 0x405:
+		change(int(b))
+		return 0
+	case 0x407:
+		s.min = int(b)
+		if s.max < s.min {
+			s.max = s.min
+		}
+		change(s.pos)
+		redraw()
+		return 0
+	case 0x408:
+		s.max = int(b)
+		if s.max < s.min {
+			s.max = s.min
+		}
+		change(s.pos)
+		redraw()
+		return 0
+	case 0x87:
+		return 1
+	case 0x7, 0x8:
+		redraw()
+		return 0
+	case 0x201:
+		call(u, "SetFocus", h)
+		call(u, "SetCapture", h)
+		s.drag = true
+		fromX(int(int16(low(b))))
+		return 0
+	case wmMouse:
+		if s.drag {
+			fromX(int(int16(low(b))))
+		}
+		return 0
+	case 0x202:
+		if s.drag {
+			fromX(int(int16(low(b))))
+			s.drag = false
+			call(u, "ReleaseCapture")
+		}
+		return 0
+	case 0x215:
+		s.drag = false
+		return 0
+	case wmKey:
+		step := 1
+		if s.max-s.min > 100 {
+			step = 5
+		}
+		switch a {
+		case 0x25, 0x28:
+			change(s.pos - step)
+		case 0x27, 0x26:
+			change(s.pos + step)
+		case 0x24:
+			change(s.min)
+		case 0x23:
+			change(s.max)
+		case 0x21:
+			change(s.pos + step*5)
+		case 0x22:
+			change(s.pos - step*5)
+		}
+		return 0
+	case wmErase:
+		return 1
+	case wmPaint:
+		var p paint
+		call(u, "BeginPaint", h, ptr(&p))
+		r := client(h)
+		call(u, "FillRect", p.DC, ptr(&r), cardBrush)
+		pad := int32(sc(10))
+		cy := r.B / 2
+		end := r.R - pad
+		f := 0.
+		if s.max > s.min {
+			f = float64(s.pos-s.min) / float64(s.max-s.min)
+		}
+		x := pad + int32(float64(end-pad)*f)
+		rail := rect{pad, cy - int32(sc(3)), end, cy + int32(sc(3))}
+		rounded(p.DC, rail, 7, 0x405057)
+		fill := rail
+		fill.R = x
+		if fill.R > fill.L {
+			rounded(p.DC, fill, 7, 0xA1E6C5)
+		}
+		knob := rect{x - int32(sc(7)), cy - int32(sc(7)), x + int32(sc(7)), cy + int32(sc(7))}
+		rounded(p.DC, knob, 14, 0xE7FAEF)
+		if call(u, "GetFocus") == h {
+			r.L += 1
+			r.R -= 1
+			r.T += 1
+			r.B -= 1
+			call(u, "DrawFocusRect", p.DC, ptr(&r))
+		}
+		call(u, "EndPaint", h, ptr(&p))
+		return 0
+	case wmDestroy:
+		delete(sliders, h)
+		return 0
+	}
+	return call(u, "DefWindowProcW", h, m, a, b)
 }

@@ -12,6 +12,9 @@ import (
 type Settings struct {
 	Theme, Direction, Custom, Background, Message, Renderer                                 string
 	Speed, LightSpeed, FPS, Size                                                            int
+	AudioPreset                                                                             string
+	AudioGain, BassGain, MidGain, HighGain                                                  int
+	Spectrum, ShowBPM, SafeLights, LowPower                                                 bool
 	Snow, Ornaments, Messages, Bloom, Matrix, Countdown, Monitor, Music, Multi, SnowPhysics bool
 }
 
@@ -20,7 +23,7 @@ var directions = []string{"Clockwise", "Counterclockwise", "Static"}
 var renderers = []string{"OpenGL (auto fallback)", "GDI (compatibility)"}
 
 func defaults() Settings {
-	return Settings{themes[0], directions[0], "#5BD6FF", "#071019", "", renderers[0], 100, 100, 60, 88, true, true, true, true, true, true, false, false, true, true}
+	return Settings{Theme: themes[0], Direction: directions[0], Custom: "#5BD6FF", Background: "#071019", Renderer: renderers[0], Speed: 100, LightSpeed: 100, FPS: 60, Size: 88, Snow: true, Ornaments: true, Messages: true, Bloom: true, Matrix: true, Countdown: true, Music: true, Multi: true, SnowPhysics: true, AudioPreset: audioPresets[0], AudioGain: 100, BassGain: 100, MidGain: 100, HighGain: 100, Spectrum: true, ShowBPM: false, SafeLights: true}
 }
 func clamp(x, a, b int) int {
 	if x < a {
@@ -67,6 +70,13 @@ func normalize(s Settings) Settings {
 	s.LightSpeed = clamp(s.LightSpeed, 0, 400)
 	s.FPS = clamp(s.FPS, 10, 144)
 	s.Size = clamp(s.Size, 45, 100)
+	if !contains(audioPresets, s.AudioPreset) {
+		s.AudioPreset = d.AudioPreset
+	}
+	s.AudioGain = clamp(s.AudioGain, 0, 200)
+	s.BassGain = clamp(s.BassGain, 0, 200)
+	s.MidGain = clamp(s.MidGain, 0, 200)
+	s.HighGain = clamp(s.HighGain, 0, 200)
 	r := []rune(s.Message)
 	if len(r) > 100 {
 		s.Message = string(r[:100])
@@ -232,6 +242,13 @@ func countdown(now time.Time) string {
 	return fmt.Sprintf("CHRISTMAS  D-%d", days)
 }
 func frame(cols, rows int, t, angle, audio float64, s Settings, stats string) Frame {
+	return audioFrame(cols, rows, t, angle, AudioFrame{Level: audio}, s, stats, false)
+}
+func audioFrame(cols, rows int, t, angle float64, af AudioFrame, s Settings, stats string, overlay bool) Frame {
+	audio := af.Level
+	bass := math.Max(af.Bands[0], af.Bands[1])
+	mid := (af.Bands[2] + af.Bands[3] + af.Bands[4]) / 3
+	high := (af.Bands[5] + af.Bands[6]) / 2
 	bg, _ := hexColor(s.Background)
 	f := Frame{nil, cols, rows, bg}
 	if cols < 16 || rows < 12 {
@@ -271,7 +288,7 @@ func frame(cols, rows int, t, angle, audio float64, s Settings, stats string) Fr
 	}
 	if s.Matrix {
 		for i := 0; i < cols; i += 3 {
-			head := int(math.Mod(t*float64(3+i%5)+float64(i*19), float64(rows+18)))
+			head := int(math.Mod(t*float64(3+i%5)+8*high*math.Sin(t*.7)+float64(i*19), float64(rows+18)))
 			for j := 0; j < 8; j++ {
 				c := "01{}<>:;"[(i+j+int(t*4))%8]
 				put(i, head-j, rune(c), shade(0x26B878, float64(8-j)/24), -300, false)
@@ -279,7 +296,7 @@ func frame(cols, rows int, t, angle, audio float64, s Settings, stats string) Fr
 		}
 	}
 	if s.Snow {
-		for i := 0; i < 100; i++ {
+		for i := 0; i < 100+int(high*65); i++ {
 			u := math.Mod(float64(i)*.6180339887, 1)
 			v := math.Mod(float64(i)*.4142135623+t*(.035+float64(i%7)*.013), 1)
 			if s.SnowPhysics {
@@ -321,32 +338,60 @@ func frame(cols, rows int, t, angle, audio float64, s Settings, stats string) Fr
 			continue
 		}
 		x, z := p.x*ca-p.z*sa, p.x*sa+p.z*ca
-		px, py, d := project(x, p.y, z)
+		pulse := 1 + .14*bass + .035*af.Beat
+		px, py, d := project(x*pulse, p.y*(1+.045*bass), z*pulse)
 		ch := p.ch
 		if p.kind == 1 && math.Sin(lt*6+p.u*40) > .6 {
 			ch = 'O'
 		}
-		put(px, py, rune(ch), color(p, z, lt, audio, s), d, p.kind == 1 || p.kind == 3)
+		put(px, py, rune(ch), color(p, z, lt+mid*.40*math.Sin(p.y*3-t*4), math.Min(1, audio*.45+bass*.20+af.Beat*.25), s), d, p.kind == 1 || p.kind == 3)
 	}
 	sx, sy, _ := project(0, 1.14, 0)
 	for _, q := range []struct {
 		x, y int
 		c    rune
 	}{{0, -2, '|'}, {-1, -1, '\\'}, {0, -1, '*'}, {1, -1, '/'}, {-2, 0, '-'}, {-1, 0, '-'}, {0, 0, '@'}, {1, 0, '-'}, {2, 0, '-'}, {-1, 1, '/'}, {1, 1, '\\'}} {
-		put(sx+q.x, sy+q.y, q.c, 0xFFE78B, 1e5, true)
+		put(sx+q.x, sy+q.y, q.c, shade(0xFFE78B, .76+.24*math.Max(high, af.Beat)), 1e5, true)
+	}
+	if s.Music && s.Spectrum && af.Level > .015 && rows > 22 {
+		for i, v := range af.Spectrum {
+			a := 2*math.Pi*float64(i)/64 + angle*.25
+			x, y, d := project(math.Cos(a)*1.14, -1.28, math.Sin(a)*1.14)
+			for j := 0; j <= int(v*4); j++ {
+				put(x, y-j, '|', hsv(float64(i)/64, .65, .25+.65*v), d-2, false)
+			}
+		}
+	}
+	if af.Beat > .09 && !s.LowPower {
+		for i := 0; i < 20; i++ {
+			a := float64(i)*2.399 + t*.3
+			rad := 1.05 + (1-af.Beat)*.9
+			x, y, d := project(math.Cos(a)*rad, -.1+math.Sin(a*2)*.8, math.Sin(a)*rad)
+			put(x, y, '.', hsv(float64(i)/20, .55, .65*af.Beat), d-2, true)
+		}
+	}
+	if s.ShowBPM && s.Music && af.BPM > 0 {
+		label(rows-4, fmt.Sprintf("~ %.0f BPM", af.BPM), 0x9FB6CF)
+	}
+	if overlay {
+		if rows > 24 {
+			label(2, "S: snow  M: code rain  B: glow  G/J: gain  Tab: stats", 0xB3BFCB)
+		}
+		label(rows-1, "Esc: exit  Space: pause  C: theme  H: hide", 0xB3BFCB)
+		label(rows-2, "Arrows: speed/direction  A: audio  P: preset  V: spectrum", 0xB3BFCB)
 	}
 	if s.Messages {
-		label(0, "M E R R Y   C H R I S T M A S", 0xF9D98A)
+		label(0, "Merry Christmas", 0xF9D98A)
 		msg := s.Message
 		if strings.TrimSpace(msg) == "" {
-			msg = []string{"while True: spread_joy()", `git commit -m "Christmas"`, `print("Hello, Christmas!")`, "404: bugs not found"}[int(t/3)%4]
+			msg = ""
 		}
 		label(rows-3, msg, 0x82E8EB)
 	}
 	if s.Countdown {
 		label(1, countdown(time.Now()), 0x9FB6CF)
 	}
-	if s.Monitor {
+	if s.Monitor && !overlay {
 		label(rows-2, stats, 0xB3BFCB)
 	}
 	for _, c := range grid {

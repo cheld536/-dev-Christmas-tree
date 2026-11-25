@@ -67,7 +67,7 @@ func (s *surface) initGL() bool {
 	return true
 }
 func mono(size int) uintptr {
-	return call(g, "CreateFontW", signed(-size), 0, 0, 0, 400, 0, 0, 0, 1, 0, 0, 4, 0x31, w("Consolas"))
+	return call(g, "CreateFontW", signed(-size), 0, 0, 0, 400, 0, 0, 0, 1, 0, 0, 4, 0x31, w(monoFace))
 }
 func (s *surface) glFont(size int) bool {
 	if s.list != 0 && s.fontsize == size {
@@ -97,7 +97,7 @@ func glColor(c uint32, a float64) {
 func (s *surface) draw(force bool) {
 	now := time.Now()
 	dt := now.Sub(s.last).Seconds()
-	if !force && dt < .90/float64(cfg.FPS) {
+	if !force && dt < .95/float64(effectiveFPS()) {
 		return
 	}
 	s.last = now
@@ -111,7 +111,9 @@ func (s *surface) draw(force bool) {
 	if cfg.Direction == "Static" {
 		sign = 0
 	}
-	s.angle += dt * .85 * float64(cfg.Speed) / 100 * sign
+	if !paused || !s.saver {
+		s.angle += dt * .85 * float64(cfg.Speed) / 100 * sign * (1 + .32*audioState.Bands[1])
+	}
 	r := client(s.hwnd)
 	ww, hh := int(r.R), int(r.B)
 	if ww < 10 || hh < 10 {
@@ -126,7 +128,7 @@ func (s *surface) draw(force bool) {
 	cols, rows := ww/cw, hh/ch
 	cols = clamp(cols, 1, 220)
 	rows = clamp(rows, 1, 100)
-	f := frame(cols, rows, now.Sub(s.begin).Seconds(), s.angle, audio, cfg, currentStats)
+	f := audioFrame(cols, rows, now.Sub(s.begin).Seconds(), s.angle, audioState, cfg, currentStats, s.saver && fullScreen && overlayVisible)
 	ox := (ww - cols*cw) / 2
 	oy := (hh - rows*ch) / 2
 	ascii := true
@@ -155,7 +157,7 @@ func (s *surface) drawGL(f Frame, ww, hh, cw, ch, ox, oy, size int) {
 	c := f.BG
 	call(gl, "glClearColor", f32(float64(c>>16&255)/255), f32(float64(c>>8&255)/255), f32(float64(c&255)/255), f32(1))
 	call(gl, "glClear", 0x4000)
-	if cfg.Bloom {
+	if cfg.Bloom && !cfg.LowPower {
 		call(gl, "glEnable", 0x0BE2)
 		call(gl, "glBlendFunc", 0x0302, 1)
 		call(gl, "glEnable", 0x0B10)
@@ -166,7 +168,7 @@ func (s *surface) drawGL(f Frame, ww, hh, cw, ch, ox, oy, size int) {
 				if !v.Glow {
 					continue
 				}
-				glColor(v.Color, layer.a)
+				glColor(v.Color, math.Min(1, layer.a*(1+.45*audioState.Level)))
 				call(gl, "glVertex2i", uintptr(ox+v.X*cw+cw/2), uintptr(oy+v.Y*ch+ch/2))
 			}
 			call(gl, "glEnd")
@@ -209,14 +211,14 @@ func (s *surface) drawGDI(f Frame, ww, hh, cw, ch, ox, oy, size int) {
 	call(g, "DeleteObject", brush)
 	old := call(g, "SelectObject", s.mem, s.gdifont)
 	call(g, "SetBkMode", s.mem, 1)
-	if cfg.Bloom {
+	if cfg.Bloom && !cfg.LowPower {
 		for _, v := range f.Cells {
 			if !v.Glow {
 				continue
 			}
 			x, y := ox+v.X*cw, oy+v.Y*ch
 			rr := rect{int32(x - 2), int32(y - 1), int32(x + cw + 2), int32(y + ch + 1)}
-			b := call(g, "CreateSolidBrush", cr(shade(v.Color, .15)))
+			b := call(g, "CreateSolidBrush", cr(shade(v.Color, .12+.10*audioState.Level)))
 			call(u, "FillRect", s.mem, ptr(&rr), b)
 			call(g, "DeleteObject", b)
 		}
@@ -231,4 +233,11 @@ func (s *surface) drawGDI(f Frame, ww, hh, cw, ch, ox, oy, size int) {
 	}
 	call(g, "SelectObject", s.mem, old)
 	call(g, "BitBlt", s.dc, 0, 0, uintptr(ww), uintptr(hh), s.mem, 0, 0, 0xCC0020)
+}
+
+func effectiveFPS() int {
+	if cfg.LowPower && cfg.FPS > 30 {
+		return 30
+	}
+	return cfg.FPS
 }
