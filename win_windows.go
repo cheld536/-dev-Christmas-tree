@@ -1,6 +1,7 @@
 package main
 
 import (
+	"christmas/internal/buildinfo"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -34,7 +35,7 @@ var settingsPreview uintptr
 var pointersKeep [2048]any
 var pointerIndex int
 var panelBrush, editBrush, cardBrush, titleFont, sectionFont uintptr
-var version = "2.3.0"
+var version = buildinfo.Version()
 var uiScale = 1.0
 var buildPage, currentPage int
 var pageChildren = map[int][]uintptr{}

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"christmas/internal/buildinfo"
 	_ "embed"
 	"encoding/json"
 	"errors"
@@ -16,7 +17,7 @@ import (
 
 //go:embed app.exe
 var payload []byte
-var version = "2.3.0"
+var version = buildinfo.Version()
 var u = syscall.NewLazyDLL("user32.dll")
 var shell = syscall.NewLazyDLL("shell32.dll")
 
