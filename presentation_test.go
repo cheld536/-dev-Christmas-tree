@@ -2,8 +2,22 @@ package main
 
 import (
 	"encoding/json"
+	"slices"
 	"testing"
 )
+
+func TestCodeStyleChangesTreeOrnaments(t *testing.T) {
+	settings := defaults()
+	settings.Snow, settings.Matrix, settings.Countdown, settings.Messages = false, false, false, false
+	python := frame(100, 48, 1, .4, 0, settings, "")
+	for style := 1; style < len(codeThemes); style++ {
+		settings.CodeStyle = style
+		styled := frame(100, 48, 1, .4, 0, settings, "")
+		if slices.Equal(python.Cells, styled.Cells) {
+			t.Fatalf("%s 테마에서 코드 장식이 바뀌지 않았습니다.", codeThemes[style])
+		}
+	}
+}
 
 func TestFullscreenResolution(t *testing.T) {
 	for _, tc := range []struct {

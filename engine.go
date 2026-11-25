@@ -22,6 +22,7 @@ type Settings struct {
 
 var themes = []string{"Rainbow RGB", "Classic Christmas", "Ice Blue", "Cyberpunk", "Gold & White", "Matrix Green", "Custom"}
 var codeThemes = []string{"Python", "C++", "Git", "Neural Network", "Minimal"}
+var ornamentGlyphs = []string{"", "<>{}*&:;", "+-@#^~", "01[]*=^", "+."}
 var directions = []string{"Clockwise", "Counterclockwise", "Static"}
 var renderers = []string{"OpenGL (auto fallback)", "GDI (compatibility)"}
 var fullscreenResolutions = []string{"자동 (모니터 해상도)", "1080p", "4K"}
@@ -339,6 +340,7 @@ func audioFrame(cols, rows int, t, angle float64, af AudioFrame, s Settings, sta
 		return int(math.Round(cx + x*scale*1.86*p)), int(math.Round(cy - v*scale*p)), d
 	}
 	lt := t * float64(s.LightSpeed) / 100
+	glyphs := ornamentGlyphs[clamp(s.CodeStyle, 0, len(ornamentGlyphs)-1)]
 	for _, p := range points {
 		if p.kind == 3 && !s.Ornaments {
 			continue
@@ -347,6 +349,9 @@ func audioFrame(cols, rows int, t, angle float64, af AudioFrame, s Settings, sta
 		pulse := 1.0
 		px, py, d := project(x*pulse, p.y, z*pulse)
 		ch := p.ch
+		if p.kind == 3 && len(glyphs) > 0 {
+			ch = glyphs[int(p.u*float64(len(glyphs)))]
+		}
 		if p.kind == 1 && math.Sin(lt*6+p.u*40) > .6 {
 			ch = 'O'
 		}
