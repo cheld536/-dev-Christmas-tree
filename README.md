@@ -2,7 +2,15 @@
 
 Windows용 3D ASCII 크리스마스 트리입니다. 색과 회전, 눈, 코드 장식을 바꾸고, v2에서는 시스템 음악에 반응하는 트리를 전체 화면이나 화면 보호기로 즐길 수 있습니다.
 
-**Windows 10/11 x64 대상 · 최신 배포 v2.2.0 (테스트 빌드)**
+**Windows 10/11 x64 대상 · 공개 릴리스 v2.2.0 · 개발 빌드 v2.3.0**
+
+### v2.3 개발 버전
+
+**LIVE PREVIEW** 아래의 **전체 화면 해상도**에서 **자동**, **1080p (1920×1080)**, **4K (3840×2160)**를 선택한 뒤 **저장**을 누릅니다. F11로 열리는 화면에 적용됩니다. 다른 화면 비율에서는 원본 비율을 유지하도록 여백이 생깁니다. Windows 디스플레이 모드는 현재 값으로 유지됩니다.
+
+v2.3 설치 화면에는 버전과 설치 위치가 표시됩니다. **바탕 화면에 바로가기 만들기**는 기본으로 선택되어 있습니다. 화면 보호기를 함께 등록하려면 **Windows 화면 보호기로 사용**을 선택합니다. 설치가 끝나면 **실행**을 눌러 앱을 엽니다.
+
+![컬러 ASCII 트리, 현재 버전과 설치 위치, 화면 보호기 선택이 보이는 v2.3 설치 화면](docs/images/setup-v2.3.png)
 
 | 시작 방법 | 필요한 것 |
 | --- | --- |
@@ -99,7 +107,9 @@ Windows에서 Go 1.23 이상으로 아래 명령을 실행합니다. 외부 Go �
 .\build.ps1
 ```
 
-빌드 결과는 `dist/DeveloperChristmasTree_v2.2_Setup.exe`와 `dist/v2.2.0-SHA256SUMS.txt`에 생성됩니다. 설치기는 먼저 빌드한 `setup/app.exe`를 포함합니다. Python 테스트는 `legacy\python`에서 `py -3.13 -m unittest -v test_app`로 실행합니다.
+현재 개발 소스의 빌드 결과는 `dist/DeveloperChristmasTree_v2.3_Setup.exe`와 `dist/v2.3.0-SHA256SUMS.txt`입니다. 설치기는 먼저 빌드한 `setup/app.exe`를 포함합니다. Windows 아이콘 리소스는 빌드 시 생성됩니다. Python 테스트는 `legacy\python`에서 `py -3.13 -m unittest -v test_app`로 실행합니다.
+
+개발 버전은 [VERSION](internal/buildinfo/VERSION)에서 관리합니다. 앱, 설치 창, 설치 정보, 기본 파일명과 검사값 파일명이 이 버전을 사용합니다. 릴리스 워크플로는 태그의 버전을 빌드에 전달합니다.
 
 GitHub Actions는 `main` 푸시와 풀 리퀘스트에서 Go 및 Python 테스트와 Windows 빌드를 실행합니다. `main`에 포함된 커밋의 새 `vMAJOR.MINOR.PATCH` 태그를 푸시하면 해당 버전으로 설치기를 빌드하고, EXE와 검사값을 검증한 뒤 GitHub Release를 공개합니다.
 
@@ -115,7 +125,7 @@ GitHub Actions는 `main` 푸시와 풀 리퀘스트에서 Go 및 Python 테스�
 
 Windows 11 x64에서 v1 설정 창 실행과 v2 세 버전의 설치·실행·제거, 버전 간 덮어쓰기와 설정 유지를 확인했습니다. 화면 보호기 등록, WASAPI·GSMTC, 다중 모니터, DPI 및 실제 프레임 성능은 추가 검증 대상입니다. 배포 EXE는 서명되지 않았습니다. 음악 분석과 미디어 정보 조회는 PC에서 이루어집니다.
 
-[변경 이력](CHANGELOG.md) · [아키텍처](docs/ARCHITECTURE.md) · [Windows QA](docs/WINDOWS_QA.md) · [배포 파일 SHA256](docs/release-checksums.txt)
+[변경 이력](CHANGELOG.md) · [v2.4 로드맵](docs/ROADMAP.md) · [아키텍처](docs/ARCHITECTURE.md) · [Windows QA](docs/WINDOWS_QA.md) · [배포 파일 SHA256](docs/release-checksums.txt)
 
 Git 이력은 제공된 과거 소스 스냅샷을 바탕으로 재구성했습니다. 라이선스는 저장소 소유자가 결정하기 전까지 미지정 상태입니다.
 

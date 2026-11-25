@@ -1,6 +1,7 @@
 package main
 
 import (
+	"christmas/internal/buildinfo"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -27,12 +28,14 @@ var keepIndex int
 var uiUpdating bool
 var toastText string
 var toastUntil time.Time
+var footerEvent captionEvent
+var footerUntil time.Time
 var settingsPreview uintptr
 
 var pointersKeep [2048]any
 var pointerIndex int
 var panelBrush, editBrush, cardBrush, titleFont, sectionFont uintptr
-var version = "2.2.0"
+var version = buildinfo.Version()
 var uiScale = 1.0
 var buildPage, currentPage int
 var pageChildren = map[int][]uintptr{}
@@ -65,6 +68,9 @@ func chooseFont(face, fallback string, size int, weight uintptr) uintptr {
 	return h
 }
 func roundRegion(h uintptr, ww, hh, r int) {
+	if layout := settingControls[h]; layout != nil {
+		layout.radius = r
+	}
 	region := call(g, "CreateRoundRectRgn", 0, 0, uintptr(sc(ww)+1), uintptr(sc(hh)+1), uintptr(sc(r)), uintptr(sc(r)))
 	if call(u, "SetWindowRgn", h, region, 1) == 0 {
 		call(g, "DeleteObject", region)
@@ -226,6 +232,9 @@ func window(cls, title string, style, ex uintptr, x, y, ww, hh int, parent, id u
 }
 func child(cls, title string, style uintptr, x, y, ww, hh, id int) uintptr {
 	h := window(cls, title, wsChild|wsVisible|style, 0, sc(x), sc(y), sc(ww), sc(hh), mainwin, uintptr(id))
+	if h != 0 {
+		settingControls[h] = &settingControl{x: x, y: y, width: ww, height: hh}
+	}
 	track(h)
 	if id > 0 {
 		controls[id] = h
@@ -239,6 +248,12 @@ func child(cls, title string, style uintptr, x, y, ww, hh, id int) uintptr {
 func label(s string, x, y, ww, hh int) { child("STATIC", s, 0, x, y, ww, hh, 0) }
 func heading(s string, x, y, ww, hh int, f uintptr) {
 	h := child("STATIC", s, 0, x, y, ww, hh, 0)
+	if layout := settingControls[h]; layout != nil {
+		layout.fontRole = 2
+		if f == titleFont {
+			layout.fontRole = 1
+		}
+	}
 	send(h, wmSetFont, f, 1)
 }
 func combo(id, x, y int, items []string) {
@@ -315,6 +330,8 @@ const (
 	idSafe        = 157
 	idLowPower    = 158
 	idCodeStyle   = 159
+	idResolution  = 160
+	idVersion     = 161
 )
 
 func selectCombo(id int, items []string, s string) {
@@ -338,6 +355,7 @@ func uiSet() {
 	selectCombo(idTheme, themes, cfg.Theme)
 	selectCombo(idDir, directions, cfg.Direction)
 	selectCombo(idCodeStyle, codeThemes, codeThemes[cfg.CodeStyle])
+	selectCombo(idResolution, fullscreenResolutions, cfg.FullscreenResolution)
 	selectCombo(idAudioPreset, audioPresets, cfg.AudioPreset)
 	for id, v := range map[int]int{idSpeed: cfg.Speed, idLight: cfg.LightSpeed, idFPS: cfg.FPS, idSize: cfg.Size, idAudioGain: cfg.AudioGain, idBassGain: cfg.BassGain, idMidGain: cfg.MidGain, idHighGain: cfg.HighGain} {
 		send(controls[id], 0x405, 1, uintptr(v))
@@ -358,6 +376,7 @@ func uiRead() {
 	cfg.Direction = comboVal(idDir, directions)
 	cfg.Renderer = renderers[1]
 	cfg.CodeStyle = clamp(int(send(controls[idCodeStyle], 0x147, 0, 0)), 0, len(codeThemes)-1)
+	cfg.FullscreenResolution = comboVal(idResolution, fullscreenResolutions)
 	cfg.AudioPreset = comboVal(idAudioPreset, audioPresets)
 	for id, p := range map[int]*int{idSpeed: &cfg.Speed, idLight: &cfg.LightSpeed, idFPS: &cfg.FPS, idSize: &cfg.Size, idAudioGain: &cfg.AudioGain, idBassGain: &cfg.BassGain, idMidGain: &cfg.MidGain, idHighGain: &cfg.HighGain} {
 		*p = int(send(controls[id], 0x400, 0, 0))
@@ -508,16 +527,11 @@ const previewX, previewY, previewW, previewH = 30, 112, 580, 502
 func setupUI() {
 	uiUpdating = true
 	defer func() { uiUpdating = false }()
-	var work rect
-	call(u, "SystemParametersInfoW", 0x30, 0, ptr(&work), 0)
-	uiScale = math.Min(1, math.Min(float64(work.R-work.L-8)/1120, float64(work.B-work.T-8)/770))
-	if uiScale < .45 {
-		uiScale = .45
-	}
+	work := settingsWorkArea(0)
+	uiScale = settingsScale(work, int(call(u, "GetDpiForSystem")))
 	x := int(work.L) + (int(work.R-work.L)-sc(1120))/2
 	y := int(work.T) + (int(work.B-work.T)-sc(770))/2
-	versionLabel := strings.TrimSuffix(version, ".0")
-	mainwin = window("DCTMain", "Christmas Tree  •  "+versionLabel, 0x06CA0000, 0, x, y, sc(1120), sc(770), 0, 0)
+	mainwin = window("DCTMain", "Developer Christmas Tree", 0x06CA0000, 0, x, y, sc(1120), sc(770), 0, 0)
 	if mainwin == 0 {
 		box(0, "설정 창을 열 수 없어요.", 0x10)
 		return
@@ -527,14 +541,16 @@ func setupUI() {
 	call(dwm, "DwmSetWindowAttribute", mainwin, 20, ptr(&dark), 4)
 	corner := int32(2)
 	call(dwm, "DwmSetWindowAttribute", mainwin, 33, ptr(&corner), 4)
-	font = chooseFont("Pretendard", "Segoe UI", 16, 400)
-	titleFont = chooseFont("Segoe UI Variable Display", "Segoe UI", 28, 600)
-	sectionFont = chooseFont("Pretendard", "Segoe UI", 19, 600)
-	heading("Christmas Tree", 25, 13, 285, 37, titleFont)
-	label(versionLabel, 312, 25, 100, 23)
-	heading("미리보기", 30, 78, 210, 28, sectionFont)
-	audioStatus = child("STATIC", "", 0, 290, 82, 320, 22, 0)
+	makeSettingsFonts()
+	heading("Christmas Tree", 25, 13, 260, 37, titleFont)
+	label("3D ASCII SCREENSAVER  /  LIVE CONFIGURATION", 303, 25, 515, 23)
+	child("STATIC", "v"+version, 2, 987, 25, 102, 23, idVersion)
+	heading("LIVE PREVIEW  ·  실시간 미리보기", 30, 78, 350, 28, sectionFont)
+	audioStatus = child("STATIC", "", 2, 390, 82, 220, 22, 0)
 	p := window("DCTRender", "", wsChild|wsVisible, 0, sc(previewX), sc(previewY), sc(previewW), sc(previewH), mainwin, 0)
+	if p != 0 {
+		settingControls[p] = &settingControl{x: previewX, y: previewY, width: previewW, height: previewH}
+	}
 	roundRegion(p, previewW, previewH, 20)
 	addSurface(p, false)
 	settingsPreview = p
@@ -542,7 +558,9 @@ func setupUI() {
 	button(idFull, 30, 628, 180, "전체 화면   F11")
 	button(idTest, 220, 628, 180, "화면 보호기 미리보기")
 	button(idWindows, 410, 628, 200, "Windows 화면 보호기")
-	label("전체 화면에서 H를 누르면 단축키가 나와요.", 30, 675, 580, 24)
+	label("전체 화면 해상도", 30, 675, 135, 24)
+	combo(idResolution, 166, 672, fullscreenResolutions)
+	label("H  ·  SHORTCUTS", 412, 675, 195, 24)
 	button(idVisualPage, 649, 78, 210, "트리와 조명")
 	button(idAudioPage, 869, 78, 207, "음악과 효과")
 	buildPage = 1
@@ -633,6 +651,8 @@ func openFull() {
 	fullScreen = true
 	paused = false
 	overlayVisible = false
+	footerEvent = captionNone
+	toastUntil = time.Time{}
 	startSaver(false, 0)
 	if len(saverWindows) == 0 {
 		fullScreen = false
@@ -654,6 +674,8 @@ func fullKey(key uintptr) {
 		return
 	case 0x20:
 		paused = !paused
+		footerEvent = captionResumed
+		footerUntil = time.Now().Add(2300 * time.Millisecond)
 	case 0x26:
 		cfg.Speed = clamp(cfg.Speed+25, 0, 400)
 	case 0x28:
@@ -671,6 +693,11 @@ func fullKey(key uintptr) {
 		}
 	case 'S':
 		cfg.Snow = !cfg.Snow
+		footerEvent = captionNone
+		if cfg.Snow {
+			footerEvent = captionSnow
+			footerUntil = time.Now().Add(2300 * time.Millisecond)
+		}
 	case 'M':
 		cfg.Matrix = !cfg.Matrix
 	case 'B':
@@ -880,6 +907,11 @@ func renderProc(h, m, a, b uintptr) uintptr {
 }
 func mainProc(h, m, a, b uintptr) uintptr {
 	switch m {
+	case 0x02E0:
+		if h == mainwin && b != 0 {
+			changeSettingsDPI(h, low(a), *(*rect)(unsafe.Pointer(b)))
+		}
+		return 0
 	case wmErase:
 		return 1
 	case wmPaint:
@@ -915,7 +947,7 @@ func mainProc(h, m, a, b uintptr) uintptr {
 		if uiUpdating {
 			return 0
 		}
-		if (high(a) == 1 && (low(a) == idTheme || low(a) == idDir || low(a) == idAudioPreset || low(a) == idCodeStyle)) || (high(a) == 0x300 && low(a) == idMessage) {
+		if (high(a) == 1 && (low(a) == idTheme || low(a) == idDir || low(a) == idAudioPreset || low(a) == idCodeStyle || low(a) == idResolution)) || (high(a) == 0x300 && low(a) == idMessage) {
 			uiRead()
 			return 0
 		}
@@ -937,6 +969,10 @@ func mainProc(h, m, a, b uintptr) uintptr {
 }
 func register(name string, cb uintptr, style uint32, brush uintptr) {
 	c := wc{Style: style, Proc: cb, Instance: inst, Cursor: call(u, "LoadCursorW", 0, 32512), Brush: brush, Class: w(name)}
+	if name == "DCTMain" {
+		c.Icon = call(u, "LoadIconW", inst, 1)
+		c.Small = call(u, "LoadImageW", inst, 1, 1, 16, 16, 0x8000)
+	}
 	c.Size = uint32(unsafe.Sizeof(c))
 	call(u, "RegisterClassExW", ptr(&c))
 }

@@ -2,6 +2,7 @@
 /setup/app.exe
 *.exe
 *.scr
+branding_windows_amd64.syso
 *.tmp
 settings.json
 previous-saver.json

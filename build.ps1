@@ -1,14 +1,23 @@
 [CmdletBinding()]
 param(
     [ValidatePattern('^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$')]
-    [string]$Version = '2.2.0'
+    [string]$Version
 )
 
 $ErrorActionPreference = 'Stop'
 Push-Location $PSScriptRoot
 try {
+    if (-not $PSBoundParameters.ContainsKey('Version')) {
+        $Version = (Get-Content -Raw -LiteralPath internal/buildinfo/VERSION).Trim()
+    }
+    if ($Version -cnotmatch '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$') {
+        throw '버전은 MAJOR.MINOR.PATCH 형식이어야 합니다.'
+    }
     $env:GOOS = 'windows'; $env:GOARCH = 'amd64'; $env:CGO_ENABLED = '0'
-    $flags = "-s -w -H windowsgui -X main.version=$Version"
+    go run github.com/akavel/rsrc@v0.10.2 -arch amd64 -ico assets/tree.ico -o branding_windows_amd64.syso
+    if ($LASTEXITCODE -ne 0) { throw 'Windows 아이콘 리소스를 만들 수 없습니다.' }
+    Copy-Item -LiteralPath branding_windows_amd64.syso -Destination setup/branding_windows_amd64.syso -Force
+    $flags = "-s -w -H windowsgui -X christmas/internal/buildinfo.override=$Version"
     go build -trimpath -ldflags $flags -o setup/app.exe .
     if ($LASTEXITCODE -ne 0) { throw 'App build failed' }
     go test -v -count=1 ./...

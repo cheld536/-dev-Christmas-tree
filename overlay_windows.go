@@ -9,18 +9,6 @@ import (
 	"unsafe"
 )
 
-type codeLine struct {
-	text  string
-	color uint32
-}
-
-var snippets = [][]codeLine{
-	{{"# december.py", 0x718C9E}, {"from math import sin, tau", 0x9CBEFF}, {"", 0}, {"def lights(t):", 0xC7A7FF}, {"    return (sin(t * tau) + 1) / 2", 0xD9E6F0}, {"", 0}, {"def phase(frame, fps):", 0xC7A7FF}, {"    return lights(frame / fps)", 0x80D5B4}},
-	{{"// winter.cpp", 0x718C9E}, {"constexpr auto season = \"winter\";", 0x9CBEFF}, {"", 0}, {"for (auto& light : tree) {", 0xC7A7FF}, {"    light.tick(dt);", 0xD9E6F0}, {"    light.draw();", 0x80D5B4}, {"}", 0xD9E6F0}},
-	{{"$ git log --oneline -3", 0x80D5B4}, {"c1225a1  feat: light the tree", 0xD9E6F0}, {"b1224e0  fix: snow drift", 0xD9E6F0}, {"a1223c0  init: winter scene", 0xD9E6F0}, {"", 0}, {"$ git status --short", 0x80D5B4}, {"# working tree clean", 0x718C9E}},
-	{{"# train.py", 0x718C9E}, {"model.eval()", 0x9CBEFF}, {"with torch.no_grad():", 0xC7A7FF}, {"    logits = model(stars)", 0xD9E6F0}, {"    glow = logits.sigmoid()", 0x80D5B4}, {"", 0}, {"# illustrative code", 0x718C9E}},
-}
-
 func fill(dc uintptr, r rect, c uint32) {
 	if r.R <= r.L || r.B <= r.T {
 		return
@@ -82,12 +70,12 @@ func artAt(dc uintptr, m *mediaInfo, x, y, size int) {
 	call(g, "StretchDIBits", dc, signed(x), signed(y), uintptr(size), uintptr(size), 0, 0, uintptr(m.ArtW), uintptr(m.ArtH), uintptr(unsafe.Pointer(&m.Pixels[0])), ptr(&info), 0, 0xCC0020)
 	runtime.KeepAlive(m)
 }
-func (s *surface) drawOverlay(ww, hh, sceneH int) {
+func (s *surface) drawOverlay(ww, hh, sceneH, treeH int) {
 	dc := s.mem
-	if ww < 280 || hh < 190 {
+	if ww < 200 || hh < 120 {
 		return
 	}
-	scale := clamp(hh/45, 13, 23)
+	scale := clamp(hh/45, 13, 38)
 	s.overlayFonts(scale)
 	pad := clamp(hh/55, 8, 22)
 	line := scale + 6
@@ -166,24 +154,35 @@ func (s *surface) drawOverlay(ww, hh, sceneH int) {
 			}
 		}
 	}
-	if !s.saver && cfg.Ornaments && cfg.CodeStyle < len(snippets) && ww >= 400 && sceneH >= 285 {
-		x, y := pad, 3*line
-		width := clamp(ww/3, 125, 225)
-		rounded(dc, rect{int32(x), int32(y), int32(x + width), int32(y + 3*line)}, 12, 0x111D27)
-		textAt(dc, s.uiFont, rect{int32(x + 7), int32(y + 2), int32(x + width - 7), int32(y + line + 2)}, codeThemes[cfg.CodeStyle], 0x84E4C3, 0)
-		l := snippets[cfg.CodeStyle][1]
-		textAt(dc, s.uiCode, rect{int32(x + 7), int32(y + line + 2), int32(x + width - 7), int32(y + 2*line + 2)}, l.text, l.color, 0)
-	}
-	if s.saver && fullScreen && !overlayVisible && cfg.Ornaments && cfg.CodeStyle < len(snippets) && ww >= 1050 && sceneH >= 350 {
-		width := clamp(ww/4, 270, 410)
-		x := pad
-		y := sceneH / 3
-		h := line*(len(snippets[cfg.CodeStyle])+2) + pad
-		rounded(dc, rect{int32(x), int32(y), int32(x + width), int32(y + h)}, 18, 0x111D27)
-		textAt(dc, s.uiFont, rect{int32(x + pad), int32(y + pad/2), int32(x + width - pad), int32(y + pad/2 + line)}, codeThemes[cfg.CodeStyle]+"  /  snippet", 0x84E4C3, 0)
-		for i, l := range snippets[cfg.CodeStyle] {
-			yy := y + pad/2 + (i+1)*line
-			textAt(dc, s.uiCode, rect{int32(x + pad), int32(yy), int32(x + width - pad), int32(yy + line)}, l.text, l.color, 0)
+	if treeH < sceneH {
+		now := time.Now()
+		isFull := s.saver && fullScreen
+		event := captionNone
+		if isFull {
+			event = footerEvent
+		}
+		code, comment := developerCaption(now, cfg.Messages, cfg.Countdown, isFull && paused, event, footerUntil)
+		y := treeH
+		drawLine := func(font uintptr, text string, color uint32) {
+			textAt(dc, font, rect{int32(pad), int32(y), int32(ww - pad), int32(y + line)}, text, color, 1)
+			y += line
+		}
+		if code != "" {
+			budget := sceneH - treeH
+			if isFull {
+				budget -= line
+			}
+			if budget >= 2*line {
+				drawLine(s.uiCode, "<<<  HAPPY CODING  >>>", 0xFFD66E)
+			}
+			if comment != "" && ww >= 25*scale {
+				drawLine(s.uiFont, code+"  # "+comment, 0x69E6FF)
+			} else {
+				drawLine(s.uiCode, code, 0x69E6FF)
+			}
+		}
+		if isFull {
+			drawLine(s.uiCode, "Esc / F11", 0x9BACBF)
 		}
 	}
 	if s.saver && fullScreen && overlayVisible && ww >= 360 && sceneH >= 280 {
@@ -210,7 +209,7 @@ func (s *surface) drawOverlay(ww, hh, sceneH int) {
 	if s.saver && fullScreen && time.Now().Before(toastUntil) {
 		width := clamp(ww/4, 180, 330)
 		x := (ww - width) / 2
-		y := sceneH - 2*line - pad
+		y := 2*line + pad
 		r := rect{int32(x), int32(y), int32(x + width), int32(y + line + pad)}
 		rounded(dc, r, 14, 0x223B44)
 		textAt(dc, s.uiBold, r, toastText, 0xF1F9F7, 1)
