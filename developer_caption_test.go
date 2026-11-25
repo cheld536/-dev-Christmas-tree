@@ -44,7 +44,13 @@ func TestDefaultAndCustomDeveloperCaptions(t *testing.T) {
 		{3 * time.Second, `git commit -m "Christmas"`},
 		{6 * time.Second, `print("Hello, Christmas!")`},
 		{9 * time.Second, "404: bugs not found"},
-		{12 * time.Second, "while True: spread_joy()"},
+		{12 * time.Second, "git switch -c holiday"},
+		{15 * time.Second, "debug(santa.route)"},
+		{18 * time.Second, "coffee = cocoa"},
+		{21 * time.Second, "return cookies, 200"},
+		{24 * time.Second, `deploy("snow")`},
+		{27 * time.Second, "CRON: Santa at midnight"},
+		{30 * time.Second, "while True: spread_joy()"},
 	} {
 		if got, _ := developerCaption(now, tc.elapsed, settings, false, captionNone, time.Time{}); got != tc.want {
 			t.Fatalf("%v 이후 기본 문구 = %q, 기댓값 = %q", tc.elapsed, got, tc.want)
@@ -57,5 +63,23 @@ func TestDefaultAndCustomDeveloperCaptions(t *testing.T) {
 	settings.Messages = false
 	if got, _ := developerCaption(now, 6*time.Second, settings, false, captionNone, time.Time{}); got != "" {
 		t.Fatalf("인사말을 끈 상태에서 문구 표시 = %q", got)
+	}
+}
+
+func TestChristmasCaptionRotatesWithDefaultGreetings(t *testing.T) {
+	now := time.Date(2026, time.December, 25, 0, 0, 0, 0, time.Local)
+	settings := Settings{Messages: true, Countdown: true}
+	for _, tc := range []struct {
+		elapsed time.Duration
+		want    string
+	}{
+		{0, `assert presents, "선물 누락"`},
+		{3 * time.Second, "while True: spread_joy()"},
+		{30 * time.Second, "CRON: Santa at midnight"},
+		{33 * time.Second, `assert presents, "선물 누락"`},
+	} {
+		if got, _ := developerCaption(now, tc.elapsed, settings, false, captionNone, time.Time{}); got != tc.want {
+			t.Fatalf("%v 이후 크리스마스 문구 = %q, 기댓값 = %q", tc.elapsed, got, tc.want)
+		}
 	}
 }
