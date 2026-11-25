@@ -64,6 +64,12 @@ Python 전체 화면은 키나 마우스 입력으로 닫을 수 있습니다. �
 
 ![Python/Tkinter v1의 3D 트리 미리보기와 테마·속도 설정 창](legacy/python/UI_preview.png)
 
+### Python 코드 미리보기
+
+실행 인자를 읽어 설정 창·전체 화면·화면 보호기 미리보기 중 하나를 여는 부분입니다. 이미지를 클릭하면 원본 코드가 열립니다.
+
+[![christmas_screensaver.py의 286~304줄. parse_mode와 main 함수가 실행 모드를 선택하는 코드](docs/images/python-source.png)](legacy/python/christmas_screensaver.py#L286-L304)
+
 ## v2 단축키
 
 일반 전체 화면에서 **H**를 누르면 단축키 패널이 열립니다.
