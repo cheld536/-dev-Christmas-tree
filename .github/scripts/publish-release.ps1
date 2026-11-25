@@ -51,11 +51,9 @@ $prerelease = $false
 $notes = @('--generate-notes')
 if (-not $isRestored -and $tagRef.object.type -ceq 'tag') {
     $annotation = Invoke-Gh api "repos/$repo/git/tags/$($tagRef.object.sha)" --jq .message
-    if ($annotation -ccontains 'Release-Channel: prerelease') {
-        $prerelease = $true
-        $body = ($annotation | Where-Object { $_ -cne 'Release-Channel: prerelease' }) -join "`n"
-        if ($body.Trim()) { $notes = @('--notes', $body.Trim()) }
-    }
+    $prerelease = $annotation -ccontains 'Release-Channel: prerelease'
+    $body = ($annotation | Where-Object { $_ -cne 'Release-Channel: prerelease' }) -join "`n"
+    if ($body.Trim()) { $notes = @('--notes', $body.Trim()) }
 }
 $exePath = Join-Path $directory $exeName
 $checksumPath = Join-Path $directory $checksumName
