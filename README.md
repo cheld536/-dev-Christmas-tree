@@ -4,6 +4,8 @@ Windows용 3D ASCII 크리스마스 트리, 화면 보호기, 음악 시각화 �
 
 **현재 버전: v2.2.0 (테스트 빌드)** · Windows 10/11 x64 대상. Python이나 Go를 설치할 필요 없는 단일 Setup.exe를 배포합니다. 개발자만 Go가 필요합니다.
 
+[버전별 설치 파일과 SHA256 검사값](https://github.com/cheld536/-dev-Christmas-tree/releases)을 받을 수 있습니다. v1.0.0에는 설치 과정 없이 실행하는 Python/Tkinter EXE가 제공됩니다.
+
 ## 사용법
 
 1. 설치 파일을 실행합니다. 기존 버전이 실행 중이면 먼저 종료합니다.
@@ -38,7 +40,9 @@ Go 1.23 이상 권장. 외부 Go 모듈 의존성 없음.
 .\build.ps1
 ```
 
-출력: `dist/DeveloperChristmasTree_v2.2_Setup.exe`. 설치기는 먼저 빌드한 `setup/app.exe`를 embed합니다. 이 바이너리는 Git에서 제외됩니다. GitHub Actions의 Windows 빌드 워크플로도 제공합니다.
+빌드 결과는 `dist/DeveloperChristmasTree_v2.2_Setup.exe`와 `dist/v2.2.0-SHA256SUMS.txt`에 생성됩니다. 설치기는 먼저 빌드한 `setup/app.exe`를 포함합니다.
+
+GitHub Actions는 `main` 푸시와 풀 리퀘스트에서 Go 및 Python 테스트와 Windows 빌드를 실행합니다. `main`에 포함된 커밋의 새 `vMAJOR.MINOR.PATCH` 태그를 푸시하면 해당 버전으로 설치기를 빌드하고, EXE와 검사값을 검증한 뒤 GitHub Release를 공개합니다. 복원 버전의 [배포 검사값](docs/release-checksums.txt)은 별도로 기록했습니다.
 
 ## 구성
 
@@ -62,7 +66,7 @@ docs/                개발 기록, 구조, 테스트 체크리스트
 
 ## 검증 상태
 
-Linux에서 코어 단위 테스트 13개 통과 및 Windows x64 교차 빌드, Setup 내부 실행 파일 포함 검사 완료. Windows 실기 설치·UI·WASAPI·GSMTC·다중 모니터·DPI 동작은 미검증입니다. 실제 FPS 및 흔들림 개선 효과도 Windows에서 확인해야 합니다. 코드 서명 없음. Windows 보안 정책을 우회하지 마세요. 음악 분석과 메타데이터 조회는 로컬에서 수행하며 자체 서버로 전송하지 않습니다.
+Windows 11 x64에서 v1 설정 창 실행, v2 세 버전의 설치·앱 실행·제거, 버전 간 덮어쓰기와 설정 유지 여부를 확인했습니다. WASAPI·GSMTC·다중 모니터·DPI 및 실제 프레임 성능은 추가 검증 대상입니다. 배포 EXE에는 코드 서명이 없습니다. 음악 분석과 메타데이터 조회는 로컬에서 수행하며 자체 서버로 전송하지 않습니다.
 
 개발 이력은 [CHANGELOG](CHANGELOG.md), 설계는 [architecture](docs/ARCHITECTURE.md), 실제 환경 검증 항목은 [Windows QA](docs/WINDOWS_QA.md)를 참고하세요.
 

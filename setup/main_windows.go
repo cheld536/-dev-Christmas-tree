@@ -16,6 +16,7 @@ import (
 
 //go:embed app.exe
 var payload []byte
+var version = "2.2.0"
 var u = syscall.NewLazyDLL("user32.dll")
 var shell = syscall.NewLazyDLL("shell32.dll")
 
@@ -121,7 +122,7 @@ func install(dir, menu string) error {
 			return e
 		}
 	}
-	for n, v := range map[string]string{"DisplayName": "Developer Christmas Tree", "DisplayVersion": "2.2.0", "Publisher": "Developer Christmas Tree", "InstallLocation": dir, "DisplayIcon": app, "UninstallString": "\"" + un + "\" /uninstall"} {
+	for n, v := range map[string]string{"DisplayName": "Developer Christmas Tree", "DisplayVersion": version, "Publisher": "Developer Christmas Tree", "InstallLocation": dir, "DisplayIcon": app, "UninstallString": "\"" + un + "\" /uninstall"} {
 		if e := regSet(uninstallKey, n, v); e != nil {
 			return e
 		}
@@ -238,7 +239,7 @@ func main() {
 		uninstall(dir, menu)
 		return
 	}
-	if msg("Christmas Tree 2.2을 설치할까요?\n\n기존 설정은 그대로 유지됩니다.\n실행 중인 Christmas Tree 창을 먼저 닫아 주세요.", 0x24) != 6 {
+	if msg("Christmas Tree "+strings.TrimSuffix(version, ".0")+"을 설치할까요?\n\n기존 설정은 그대로 유지됩니다.\n실행 중인 Christmas Tree 창을 먼저 닫아 주세요.", 0x24) != 6 {
 		return
 	}
 	if e := install(dir, menu); e != nil {

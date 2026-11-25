@@ -32,6 +32,7 @@ var settingsPreview uintptr
 var pointersKeep [2048]any
 var pointerIndex int
 var panelBrush, editBrush, cardBrush, titleFont, sectionFont uintptr
+var version = "2.2.0"
 var uiScale = 1.0
 var buildPage, currentPage int
 var pageChildren = map[int][]uintptr{}
@@ -515,7 +516,8 @@ func setupUI() {
 	}
 	x := int(work.L) + (int(work.R-work.L)-sc(1120))/2
 	y := int(work.T) + (int(work.B-work.T)-sc(770))/2
-	mainwin = window("DCTMain", "Christmas Tree  •  2.2", 0x06CA0000, 0, x, y, sc(1120), sc(770), 0, 0)
+	versionLabel := strings.TrimSuffix(version, ".0")
+	mainwin = window("DCTMain", "Christmas Tree  •  "+versionLabel, 0x06CA0000, 0, x, y, sc(1120), sc(770), 0, 0)
 	if mainwin == 0 {
 		box(0, "설정 창을 열 수 없어요.", 0x10)
 		return
@@ -529,7 +531,7 @@ func setupUI() {
 	titleFont = chooseFont("Segoe UI Variable Display", "Segoe UI", 28, 600)
 	sectionFont = chooseFont("Pretendard", "Segoe UI", 19, 600)
 	heading("Christmas Tree", 25, 13, 285, 37, titleFont)
-	label("2.2", 312, 25, 100, 23)
+	label(versionLabel, 312, 25, 100, 23)
 	heading("미리보기", 30, 78, 210, 28, sectionFont)
 	audioStatus = child("STATIC", "", 0, 290, 82, 320, 22, 0)
 	p := window("DCTRender", "", wsChild|wsVisible, 0, sc(previewX), sc(previewY), sc(previewW), sc(previewH), mainwin, 0)

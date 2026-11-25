@@ -1,25 +1,106 @@
-name: Windows build
+name: Windows build and release
 on:
   push:
     branches: [main]
+    tags: ['v[0-9]*.[0-9]*.[0-9]*']
   pull_request:
   workflow_dispatch:
+    inputs:
+      restored_tag:
+        description: '검증된 복원본이 첨부된 초안 릴리스의 태그 (선택)'
+        type: string
+        default: ''
+
 permissions:
   contents: read
+
 jobs:
   build:
+    if: inputs.restored_tag == ''
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version-file: go.mod
           cache: false
-      - name: Build and test
+      - name: Go 테스트 및 Windows 설치기 빌드
         shell: pwsh
-        run: ./build.ps1
-      - uses: actions/upload-artifact@v4
+        run: |
+          if ($env:GITHUB_REF_TYPE -eq 'tag') {
+            git merge-base --is-ancestor HEAD origin/main
+            if ($LASTEXITCODE -ne 0) { throw 'main에 포함된 커밋에 태그를 붙이세요.' }
+            ./build.ps1 -Version $env:GITHUB_REF_NAME.Substring(1)
+          } else {
+            ./build.ps1
+          }
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: DeveloperChristmasTree-Windows-x64
-          path: dist/DeveloperChristmasTree_v2.2_Setup.exe
+          path: |
+            dist/*_Setup.exe
+            dist/v*-SHA256SUMS.txt
           if-no-files-found: error
+
+  legacy:
+    if: inputs.restored_tag == '' && github.ref_type != 'tag'
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: legacy/python
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.13.5'
+      - name: Python/Tkinter 테스트 및 독립 실행형 EXE 빌드
+        run: |
+          python -m unittest -v test_app
+          if ($LASTEXITCODE -ne 0) { throw 'Python 테스트에 실패했습니다.' }
+          python -m pip install pyinstaller==6.11.1 pyinstaller-hooks-contrib==2026.10
+          if ($LASTEXITCODE -ne 0) { throw '빌드 도구를 설치하지 못했습니다.' }
+          python -m PyInstaller --noconfirm --clean --onefile --windowed --name DeveloperChristmasTree_v1.0 christmas_screensaver.py
+          if ($LASTEXITCODE -ne 0) { throw 'Python EXE 빌드에 실패했습니다.' }
+          $exe = Get-Item -LiteralPath dist/DeveloperChristmasTree_v1.0.exe
+          $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $exe.FullName).Hash.ToLowerInvariant()
+          Set-Content -Encoding ascii -LiteralPath dist/v1.0.0-SHA256SUMS.txt -Value "$hash  $($exe.Name)"
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: DeveloperChristmasTree-Legacy-Windows-x64
+          path: legacy/python/dist/*
+          if-no-files-found: error
+
+  release:
+    needs: build
+    if: >-
+      ${{ !cancelled() &&
+          ((github.event_name == 'push' && github.ref_type == 'tag' && needs.build.result == 'success') ||
+           (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.restored_tag != '')) }}
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: release-${{ inputs.restored_tag || github.ref_name }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        if: inputs.restored_tag == ''
+        with:
+          name: DeveloperChristmasTree-Windows-x64
+          path: release-files
+      - name: 첨부 파일 검증 및 릴리스 공개
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.restored_tag || github.ref_name }}
+          RESTORED_TAG: ${{ inputs.restored_tag }}
+        run: ./.github/scripts/publish-release.ps1
