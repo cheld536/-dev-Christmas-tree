@@ -55,3 +55,50 @@ jobs:
             dist/*_macOS-*.dmg
             dist/*_macOS-*-SHA256SUMS.txt
           if-no-files-found: error
+
+  installer:
+    name: macOS 통합 설치 패키지
+    needs: build
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          pattern: DeveloperChristmasTree-macOS-*
+          path: installer-inputs
+      - name: Apple Silicon과 Intel 통합 설치 파일 만들기
+        run: |
+          bash build-macos-installer.sh installer-inputs/DeveloperChristmasTree-macOS-arm64/*.zip +            installer-inputs/DeveloperChristmasTree-macOS-x86_64/*.zip
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: DeveloperChristmasTree-macOS-Universal-Installer
+          path: |
+            dist/*_macOS-universal-*.pkg
+            dist/*_macOS-universal-*-SHA256SUMS.txt
+          if-no-files-found: error
+
+  verify-installer:
+    name: macOS 설치 및 실행 (${{ matrix.runner }})
+    needs: installer
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-15, macos-15-intel]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: DeveloperChristmasTree-macOS-Universal-Installer
+          path: installer
+      - name: 설치 파일의 SHA256과 앱 설치·실행 확인
+        run: |
+          cd installer
+          shasum -a 256 -c *-SHA256SUMS.txt
+          sudo installer -pkg ./*.pkg -target /
+          app='/Applications/Developer Christmas Tree.app'
+          codesign --verify --deep --strict "$app"
+          lipo -verify_arch arm64 x86_64 "$app/Contents/MacOS/DeveloperChristmasTree"
+          lipo -verify_arch arm64 x86_64 "$app/Contents/Helpers/tree-renderer"
+          python3 -c 'import subprocess, sys; subprocess.run([sys.argv[1], "--smoke-test"], check=True, timeout=45)' "$app/Contents/MacOS/DeveloperChristmasTree"
