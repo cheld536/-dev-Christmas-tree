@@ -69,8 +69,10 @@ jobs:
           pattern: DeveloperChristmasTree-macOS-*
           path: installer-inputs
       - name: Apple Silicon과 Intel 통합 설치 파일 만들기
-        run: |
-          bash build-macos-installer.sh installer-inputs/DeveloperChristmasTree-macOS-arm64/*.zip +            installer-inputs/DeveloperChristmasTree-macOS-x86_64/*.zip
+        run: >-
+          bash build-macos-installer.sh
+          installer-inputs/DeveloperChristmasTree-macOS-arm64/*.zip
+          installer-inputs/DeveloperChristmasTree-macOS-x86_64/*.zip
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: DeveloperChristmasTree-macOS-Universal-Installer
