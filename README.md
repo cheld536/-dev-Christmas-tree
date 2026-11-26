@@ -7,7 +7,7 @@ Windows와 macOS용 3D ASCII 크리스마스 트리입니다. 음악에 반응�
 | 운영체제 | 버전 | 다운로드 |
 | --- | --- | --- |
 | **Windows 10/11 x64** | v2.4.3 정식 | [설치 EXE](https://github.com/cheld536/-dev-Christmas-tree/releases/download/v2.4.3/DeveloperChristmasTree_v2.4.3_Setup.exe) · [SHA256](https://github.com/cheld536/-dev-Christmas-tree/releases/download/v2.4.3/v2.4.3-SHA256SUMS.txt) |
-| **Windows 10/11 x64** | v2.5.0 개발 | [설치기 아티팩트](https://github.com/cheld536/-dev-Christmas-tree/actions/runs/45755282771/artifacts/15087562166) |
+| **Windows 10/11 x64** | v2.5.0 개발 | [최신 성공 빌드](https://github.com/cheld536/-dev-Christmas-tree/actions/workflows/windows.yml?query=branch%3Amain+is%3Asuccess) |
 | **macOS 12 이상 · Apple Silicon** | v2.4.3 개발 | [arm64 ZIP](https://github.com/cheld536/-dev-Christmas-tree/releases/download/macos-v2.4.3/DeveloperChristmasTree-macOS-arm64.zip) |
 | **macOS 12 이상 · Intel** | v2.4.3 개발 | [x86_64 ZIP](https://github.com/cheld536/-dev-Christmas-tree/releases/download/macos-v2.4.3/DeveloperChristmasTree-macOS-x86_64.zip) |
 
@@ -22,7 +22,7 @@ Windows와 macOS용 3D ASCII 크리스마스 트리입니다. 음악에 반응�
 3. **실행**을 누릅니다. 이후에는 시작 메뉴나 바탕 화면에서 **Developer Christmas Tree**를 엽니다.
 4. 테마와 효과를 고르고 **저장**을 누릅니다. 바로 크게 보려면 **F11**을, 돌아오려면 **Esc** 또는 **F11**을 누릅니다.
 
-개발 빌드는 GitHub에 로그인해 받은 아티팩트 ZIP을 먼저 풀면 EXE와 검사 파일이 나옵니다. 링크가 만료되면 [Windows 빌드 기록](https://github.com/cheld536/-dev-Christmas-tree/actions/workflows/windows.yml)의 성공한 `main` 실행에서 **DeveloperChristmasTree-Windows-x64**를 받습니다.
+개발 빌드는 GitHub에 로그인한 뒤 성공한 `main` 빌드의 **Artifacts → DeveloperChristmasTree-Windows-x64**를 받습니다. ZIP을 풀면 EXE와 검사 파일이 나옵니다.
 
 <details>
 <summary>Windows 설치 창 보기</summary>
@@ -40,6 +40,8 @@ Windows와 macOS용 3D ASCII 크리스마스 트리입니다. 음악에 반응�
 | Win+L로 잠갔을 때 트리 표시 | v2.5.0 개발 빌드의 **잠금 화면 이미지 적용**. 잠금 화면에는 트리의 정지 이미지가 표시됩니다. |
 
 전역 단축키는 설정 창이 최소화되어 있어도 동작합니다. 기본 조합이 이미 사용 중이면 **Ctrl+Shift+F11**을 시도하며, 등록된 키는 설정 창 상단에 표시됩니다.
+
+v2.5.0 개발 빌드에서는 트리 크기나 회전 각도가 바뀌어도 밑동이 바닥에 닿습니다. 선물과 눈사람도 같은 바닥에 놓입니다.
 
 움직이는 화면 보호기를 확인하려면 **화면 보호기 미리보기**를 누릅니다. 자동 실행이 필요하면 Windows 설정에서 **대기** 시간과 선택된 화면 보호기를 확인하세요. 복귀할 때 로그인 화면을 표시하는 옵션도 Windows 설정에서 선택할 수 있습니다.
 

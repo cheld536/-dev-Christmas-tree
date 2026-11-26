@@ -67,7 +67,7 @@ func sleighPosition(cols int, flight float64) (int, int) {
 	return -27 + int(flight*float64(cols+27)), 2 + int(math.Round(1+math.Sin(flight*math.Pi*3)))
 }
 
-func drawStory(cols, rows, trunkY int, moment storyMoment, put func(int, int, rune, uint32, float64, bool)) {
+func drawStory(cols, rows, groundY int, moment storyMoment, put func(int, int, rune, uint32, float64, bool)) {
 	if moment.kind == noStory || cols < 40 || rows < 19 {
 		return
 	}
@@ -114,7 +114,7 @@ func drawStory(cols, rows, trunkY int, moment storyMoment, put func(int, int, ru
 		}
 	}
 
-	baseY := clamp(trunkY+2, 10, rows-5)
+	baseY := groundY - 4
 	switch moment.kind {
 	case giftStory:
 		const dropStart, landed = .29, .66
@@ -127,7 +127,7 @@ func drawStory(cols, rows, trunkY int, moment storyMoment, put func(int, int, ru
 		releaseX += 3
 		releaseY += 5
 		x := releaseX + int(float64(landingX-releaseX)*fall)
-		y := releaseY + int(float64(baseY-releaseY)*fall*fall)
+		y := releaseY + int(float64(baseY+1-releaseY)*fall*fall)
 		paint(x+1, y, `\/`, gold)
 		paint(x, y+1, "[++]", red)
 		paint(x, y+2, "[__]", red)
@@ -142,10 +142,10 @@ func drawStory(cols, rows, trunkY int, moment storyMoment, put func(int, int, ru
 		const face = 0xF1C79B
 		if p < .18 {
 			x += int((1 - p/.18) * 8)
-			paint(x, baseY-1, `/^\`, scarf)
-			paint(x, baseY, "(o)", face)
-			paint(x, baseY+1, `/|\`, coat)
-			paint(x, baseY+2, `/ \`, coat)
+			paint(x, baseY, `/^\`, scarf)
+			paint(x, baseY+1, "(o)", face)
+			paint(x, baseY+2, `/|\`, coat)
+			paint(x, baseY+3, `/ \`, coat)
 			return
 		}
 		paint(x, baseY, `/^\`, scarf)

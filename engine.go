@@ -140,7 +140,11 @@ func radius(y float64) float64 {
 	return .025
 }
 
-const trunkBottom = -1.502
+const (
+	trunkBottom = -1.502
+	trunkRadius = .105
+	trunkColor  = 0x995B34
+)
 
 func tree() []Point {
 	r := rand.New(rand.NewSource(1225))
@@ -172,7 +176,7 @@ func tree() []Point {
 	}
 	for i := 0; i < 28; i++ {
 		for j := 0; j < 22; j++ {
-			add(trunkBottom+float64(i)*.022, 2*math.Pi*float64(j)/22, .105, '|', 4, 0)
+			add(trunkBottom+float64(i)*.022, 2*math.Pi*float64(j)/22, trunkRadius, '|', 4, 0)
 		}
 	}
 	return p
@@ -198,7 +202,7 @@ func color(p Point, z, t, a float64, s Settings) uint32 {
 	v := .42 + .47*(z/math.Max(.035, math.Hypot(p.x, p.z))+1)/2 + .10*u
 	v = math.Min(1, math.Max(.25, v))
 	if p.kind == 4 {
-		return 0x995B34
+		return trunkColor
 	}
 	if s.Theme == "Custom" {
 		c, _ := hexColor(s.Custom)
@@ -267,6 +271,27 @@ func audioFrame(cols, rows int, t, angle float64, af AudioFrame, s Settings, sta
 	return composeFrame(cols, rows, t, angle, af, s, stats, overlay, story)
 }
 
+func drawGround(cols, y, center, span int, elapsed float64, settings Settings, put func(int, int, rune, uint32, float64, bool)) {
+	const depth = -150
+	tint := uint32(0x657987)
+	if settings.Snow {
+		tint = 0xA2C4D5
+	}
+	right := min(cols-1, center+span)
+	for x := max(0, center-span); x <= right; x++ {
+		offset := math.Abs(float64(x - center))
+		fade := 1 - offset/float64(span+1)
+		glyph := '_'
+		if fade < .15 {
+			glyph = '.'
+		}
+		put(x, y-1, glyph, shade(tint, .45+.45*fade), depth, false)
+		if settings.Snow && settings.SnowPhysics && (x*17)%5 <= min(2, int(elapsed/35)) {
+			put(x, y+x%2, '.', shade(tint, .28+.26*fade), depth, false)
+		}
+	}
+}
+
 func composeFrame(cols, rows int, t, angle float64, af AudioFrame, s Settings, stats string, overlay bool, story storyMoment) Frame {
 	audio := af.Level
 	bass := math.Max(af.Bands[0], af.Bands[1])
@@ -277,6 +302,7 @@ func composeFrame(cols, rows int, t, angle float64, af AudioFrame, s Settings, s
 	if cols < 16 || rows < 12 {
 		return f
 	}
+	groundY := rows - 5
 	grid := make([]Cell, cols*rows)
 	for i := range grid {
 		grid[i].Depth = -1e9
@@ -334,27 +360,24 @@ func composeFrame(cols, rows int, t, angle float64, af AudioFrame, s Settings, s
 			if i%5 == 0 {
 				ch = '*'
 			}
-			put(int(u*float64(cols)), int(v*float64(rows)), ch, 0x789CB8, -200, false)
-		}
-		if s.SnowPhysics {
-			for x := 0; x < cols; x++ {
-				h := int(math.Min(2, t/35)) + (x*17%3)/2
-				for j := 0; j < h; j++ {
-					put(x, rows-1-j, '.', 0x7694AF, -150, false)
-				}
-			}
+			put(int(u*float64(cols)), int(v*float64(groundY+1)), ch, 0x789CB8, -200, false)
 		}
 	}
 	scale := math.Min(float64(rows-9)/3.1, float64(cols-4)/4.6) * float64(s.Size) / 100
-	cx, cy := float64(cols-1)/2, float64(rows-1)/2+.2
+	cx := float64(cols-1) / 2
 	ca, sa := math.Cos(angle), math.Sin(angle)
 	ct, st := math.Cos(.12), math.Sin(.12)
+	// 밑동 앞면의 맨 아래 점을 바닥 윤곽과 같은 문자 행에 놓습니다.
+	trunkDepth := trunkRadius*ct + trunkBottom*st
+	trunkHeight := trunkBottom*ct - trunkRadius*st
+	cy := float64(groundY-1) + trunkHeight*scale*5/(5-trunkDepth)
 	project := func(x, y, z float64) (int, int, float64) {
 		d := z*ct + y*st
 		v := y*ct - z*st
 		p := 5 / (5 - d)
 		return int(math.Round(cx + x*scale*1.86*p)), int(math.Round(cy - v*scale*p)), d
 	}
+	drawGround(cols, groundY, int(cx), max(5, int(scale*2.35)), t, s, put)
 	lt := t * float64(s.LightSpeed) / 100
 	glyphs := ornamentGlyphs[clamp(s.CodeStyle, 0, len(ornamentGlyphs)-1)]
 	for _, p := range points {
@@ -398,8 +421,7 @@ func composeFrame(cols, rows int, t, angle float64, af AudioFrame, s Settings, s
 		}
 	}
 	if story.kind != noStory {
-		_, trunkY, _ := project(0, trunkBottom, 0)
-		drawStory(cols, rows, trunkY, story, put)
+		drawStory(cols, rows, groundY, story, put)
 	}
 	if s.ShowBPM && s.Music && af.BPM > 0 {
 		label(rows-4, fmt.Sprintf("~ %.0f BPM", af.BPM), 0x9FB6CF)

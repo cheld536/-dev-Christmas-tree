@@ -41,7 +41,7 @@ func TestStoryFrames(t *testing.T) {
 	}
 	air, airOK := find(giftStory, .4, 0xFF5E6A, '[')
 	ground, groundOK := find(giftStory, .9, 0xFF5E6A, '[')
-	if !airOK || !groundOK || air.Y >= ground.Y || ground.Y < 35 || ground.Y > 41 {
+	if !airOK || !groundOK || air.Y >= ground.Y || ground.Y != 45-5-2 {
 		t.Fatalf("트리 아래에 선물이 놓이지 않음: %+v, %+v", air, ground)
 	}
 	for _, tt := range []struct {

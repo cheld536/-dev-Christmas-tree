@@ -44,6 +44,31 @@ func TestRotationAndAudio(t *testing.T) {
 		t.Fatal("non-deterministic frame")
 	}
 }
+
+func TestTreeGroundContact(t *testing.T) {
+	for _, dimensions := range [][2]int{{40, 32}, {120, 45}, {120, 52}, {220, 100}} {
+		for _, size := range []int{45, 88, 100} {
+			for _, angle := range []float64{0, .44, 1.6, 3.1} {
+				s := defaults()
+				s.Size, s.Snow, s.Matrix = size, false, false
+				frame := composeFrame(dimensions[0], dimensions[1], 1, angle, AudioFrame{}, s, "", false, storyMoment{})
+				trunkY, groundY := -1, -1
+				for _, cell := range frame.Cells {
+					if cell.Ch == '|' && cell.Color == trunkColor {
+						trunkY = max(trunkY, cell.Y)
+					}
+					if cell.Ch == '_' {
+						groundY = cell.Y
+					}
+				}
+				if trunkY != groundY || groundY != dimensions[1]-6 {
+					t.Fatalf("%v 격자, 크기 %d, 각도 %.2f: 밑동 행 %d, 바닥 행 %d", dimensions, size, angle, trunkY, groundY)
+				}
+			}
+		}
+	}
+}
+
 func TestEffects(t *testing.T) {
 	s := defaults()
 	f := frame(120, 52, 3, 0, 0, s, "")
