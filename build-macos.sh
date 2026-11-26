@@ -47,7 +47,15 @@ iconutil -c icns "$work/Tree.iconset" -o "$app/Contents/Resources/Tree.icns"
 codesign --force --sign - "$app/Contents/Helpers/tree-renderer"
 codesign --force --sign - "$app"
 codesign --verify --deep --strict "$app"
-zip="DeveloperChristmasTree_v${version}_macOS-${cpu}.zip"
+name="DeveloperChristmasTree_v${version}_macOS-${cpu}"
+zip="$name.zip"
 ditto -c -k --sequesterRsrc --keepParent "$app" "dist/$zip"
 (cd dist && shasum -a 256 "$zip" > "${zip%.zip}-SHA256SUMS.txt")
-printf '%s\n' "dist/$zip"
+
+dmg="$name.dmg"
+mkdir "$work/disk"
+ditto "$app" "$work/disk/Developer Christmas Tree.app"
+ln -s /Applications "$work/disk/Applications"
+hdiutil create -ov -format UDZO -volname 'Developer Christmas Tree' -srcfolder "$work/disk" "dist/$dmg"
+(cd dist && shasum -a 256 "$dmg" > "$name-DMG-SHA256SUMS.txt")
+printf '%s\n' "dist/$dmg" "dist/$zip"

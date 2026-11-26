@@ -7,10 +7,10 @@ Windows와 macOS에서 즐기는 3D ASCII 크리스마스 트리입니다. 트�
 | 운영체제 | 파일 형식 | 다운로드 |
 | --- | --- | --- |
 | **Windows 10/11 x64** | `Setup.exe` · 정식 v2.4.3 | [Windows 설치 EXE](https://github.com/cheld536/-dev-Christmas-tree/releases/download/v2.4.3/DeveloperChristmasTree_v2.4.3_Setup.exe) · [SHA256](https://github.com/cheld536/-dev-Christmas-tree/releases/download/v2.4.3/v2.4.3-SHA256SUMS.txt) · [설치 방법](#exe로-설치하기) |
-| **macOS 12 이상 · Apple Silicon** | `.app` ZIP · 개발 빌드 | [Apple Silicon 다운로드](https://github.com/cheld536/-dev-Christmas-tree/actions/runs/45739456740/artifacts/15080870650) · [실행 방법](#macos에서-실행하기) |
-| **macOS 12 이상 · Intel** | `.app` ZIP · 개발 빌드 | [Intel 다운로드](https://github.com/cheld536/-dev-Christmas-tree/actions/runs/45739456740/artifacts/15080522502) · [실행 방법](#macos에서-실행하기) |
+| **macOS 12 이상 · Apple Silicon** | `.dmg` · 개발 빌드 | [macOS 빌드](https://github.com/cheld536/-dev-Christmas-tree/actions/workflows/macos.yml?query=branch%3Amain+is%3Asuccess)에서 **DeveloperChristmasTree-macOS-arm64** 선택 |
+| **macOS 12 이상 · Intel** | `.dmg` · 개발 빌드 | [macOS 빌드](https://github.com/cheld536/-dev-Christmas-tree/actions/workflows/macos.yml?query=branch%3Amain+is%3Asuccess)에서 **DeveloperChristmasTree-macOS-x86_64** 선택 |
 
-Python판은 [Python 소스로 실행하기](#python-소스로-실행하기)에서 확인할 수 있습니다.
+[macOS 설치 방법](#macos에서-실행하기) · [Python 소스로 실행하기](#python-소스로-실행하기)
 
 ![v2.4.2의 음악과 효과 탭에서 루돌프와 산타 썰매를 미리 보는 화면](docs/images/story-settings-v2.4.2.png)
 
@@ -95,23 +95,23 @@ Get-Content .\v2.4.3-SHA256SUMS.txt
 
 ## macOS에서 실행하기
 
-1. Mac의 **이 Mac에 관하여**에서 칩을 확인합니다. Apple 칩이면 **Apple Silicon**, Intel 프로세서면 **Intel** 다운로드를 선택합니다. Actions 다운로드에는 GitHub 로그인이 필요합니다.
-2. 내려받은 ZIP을 풀면 배포 ZIP과 SHA256 검사 파일이 나옵니다. 배포 ZIP에는 **Developer Christmas Tree.app**이 들어 있습니다. 앱을 응용 프로그램 폴더로 옮기고 두 번 클릭합니다.
-3. 오른쪽에서 테마·회전·눈·성탄 이야기를 설정합니다. **전체 화면** 버튼 또는 **Control+Command+F**로 전체 화면을 전환합니다. 설정은 Mac에 자동으로 저장됩니다.
+1. Mac의 **이 Mac에 관하여**에서 칩을 확인합니다. 위 표의 링크에서 성공한 빌드의 **Artifacts**를 열고 Apple Silicon은 **arm64**, Intel은 **x86_64**를 선택합니다. GitHub 로그인이 필요합니다.
+2. Actions에서 내려받은 ZIP을 한 번 풀고 안에 있는 **DMG**를 두 번 클릭합니다. 디스크 이미지 안의 **Developer Christmas Tree.app**을 **Applications** 아이콘으로 끌어다 놓습니다.
+3. 응용 프로그램 폴더에서 앱을 엽니다. 오른쪽에서 트리를 설정하고 **전체 화면** 또는 **Control+Command+F**로 전체 화면을 전환할 수 있습니다. 설정은 Mac에 자동으로 저장됩니다.
 
 macOS 앱은 트리 테마, 성탄 이야기, 개발자 인사말, 커플 기념일 달력과 빨간 하트를 지원합니다. **macOS 13 이상**에서는 **시스템 음악 반응**을 켜고 다른 앱에서 음악을 재생하면 조명과 이퀄라이저가 반응합니다. 처음 이용할 때는 macOS의 **화면 및 시스템 오디오 녹화** 권한을 허용합니다. 앱은 음악 효과를 위해 오디오 샘플만 분석하며, 녹음 파일을 만들지 않습니다. 미디어 제어와 화면 보호기 등록은 Windows판 기능입니다.
 
-Actions 앱은 개발자 ID 서명과 Apple 공증이 적용되지 않은 개발 빌드입니다. 위 다운로드가 만료되면 [macOS 앱 빌드](https://github.com/cheld536/-dev-Christmas-tree/actions/workflows/macos.yml)의 성공한 `main` 실행에서 **Artifacts**를 받습니다.
+Actions 앱은 개발자 ID 서명과 Apple 공증이 적용되지 않은 개발 빌드입니다. 같은 아티팩트에 앱 ZIP도 포함됩니다.
 
 <details>
-<summary>macOS ZIP의 SHA256 확인</summary>
+<summary>macOS DMG의 SHA256 확인</summary>
 
-터미널에서 배포 ZIP과 검사 파일이 함께 있는 폴더로 이동한 뒤, Mac 아키텍처에 맞는 명령을 실행합니다.
+터미널에서 DMG와 검사 파일이 함께 있는 폴더로 이동한 뒤, Mac 아키텍처에 맞는 명령을 실행합니다.
 
 ```bash
-shasum -a 256 -c DeveloperChristmasTree_v2.4.3_macOS-arm64-SHA256SUMS.txt
+shasum -a 256 -c DeveloperChristmasTree_v2.4.3_macOS-arm64-DMG-SHA256SUMS.txt
 # Intel Mac
-shasum -a 256 -c DeveloperChristmasTree_v2.4.3_macOS-x86_64-SHA256SUMS.txt
+shasum -a 256 -c DeveloperChristmasTree_v2.4.3_macOS-x86_64-DMG-SHA256SUMS.txt
 ```
 
 </details>
@@ -188,7 +188,7 @@ Windows에서 Go 1.23 이상으로 아래 명령을 실행합니다. 아이콘 �
 
 현재 소스의 빌드 결과는 `dist/DeveloperChristmasTree_v2.4.3_Setup.exe`와 `dist/v2.4.3-SHA256SUMS.txt`입니다. 설치기는 먼저 빌드한 `setup/app.exe`를 포함합니다. Windows 아이콘 리소스는 빌드 시 생성됩니다. Python 테스트는 `legacy\python`에서 `py -3.13 -m unittest -v test_app`로 실행합니다.
 
-### macOS 앱 ZIP
+### macOS 설치 DMG
 
 Go 1.23 이상, Python 3, Xcode 명령줄 도구가 설치된 Mac에서 아래 명령을 실행합니다.
 
@@ -196,7 +196,7 @@ Go 1.23 이상, Python 3, Xcode 명령줄 도구가 설치된 Mac에서 아래 �
 bash build-macos.sh
 ```
 
-빌드한 Mac의 아키텍처에 따라 `dist/DeveloperChristmasTree_v2.4.3_macOS-arm64.zip` 또는 `dist/DeveloperChristmasTree_v2.4.3_macOS-x86_64.zip`이 생성됩니다. 각각의 ZIP과 같은 이름의 SHA256 검사 파일도 생성됩니다. macOS CI는 두 아키텍처의 앱을 따로 빌드하고 압축 해제 후 실행을 검사합니다.
+빌드한 Mac의 아키텍처에 따라 `dist/DeveloperChristmasTree_v2.4.3_macOS-arm64.dmg` 또는 `dist/DeveloperChristmasTree_v2.4.3_macOS-x86_64.dmg`가 생성됩니다. 앱 ZIP과 각 파일의 SHA256 검사 파일도 생성됩니다. macOS CI는 두 아키텍처에서 DMG를 열고 앱을 복사해 실행까지 확인합니다.
 
 ### 버전 관리와 배포
 
@@ -213,7 +213,7 @@ GitHub Actions는 `main` 푸시와 풀 리퀘스트에서 Go 및 Python 테스�
 | `engine_test.go`, `audio_test.go` | 엔진·설정 및 합성 오디오 테스트 |
 | `*_windows.go` | Win32 UI, GDI 렌더링, WASAPI 및 GSMTC |
 | `setup/` | Windows 설치 및 제거 프로그램 |
-| `macos/`, `build-macos.sh` | macOS 앱과 ZIP 패키징 |
+| `macos/`, `build-macos.sh` | macOS 앱과 DMG·ZIP 패키징 |
 | `legacy/python/` | Python/Tkinter 설정 앱과 터미널 트리 |
 
 ## 검증과 프로젝트 기록

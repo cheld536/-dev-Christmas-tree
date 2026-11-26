@@ -32,12 +32,19 @@ jobs:
         run: |
           go test ./...
           bash build-macos.sh
-      - name: ZIP 검사와 macOS 창 실행 검증
+      - name: ZIP·DMG 검사와 macOS 설치 후 실행 검증
         run: |
-          (cd dist && shasum -a 256 -c *-SHA256SUMS.txt)
-          mkdir "$RUNNER_TEMP/dct"
-          ditto -x -k dist/*.zip "$RUNNER_TEMP/dct"
-          app="$RUNNER_TEMP/dct/Developer Christmas Tree.app"
+          (cd dist && for sums in *-SHA256SUMS.txt; do shasum -a 256 -c "$sums"; done)
+          unzip -tq dist/*.zip
+          hdiutil verify dist/*.dmg
+          mountpoint="$RUNNER_TEMP/dct-volume"
+          applications="$RUNNER_TEMP/dct-applications"
+          mkdir "$mountpoint" "$applications"
+          hdiutil attach dist/*.dmg -readonly -nobrowse -mountpoint "$mountpoint"
+          trap 'hdiutil detach "$mountpoint"' EXIT
+          test "$(readlink "$mountpoint/Applications")" = /Applications
+          app="$applications/Developer Christmas Tree.app"
+          ditto "$mountpoint/Developer Christmas Tree.app" "$app"
           codesign --verify --deep --strict "$app"
           python3 -c 'import subprocess, sys; subprocess.run([sys.argv[1], "--smoke-test"], check=True, timeout=45)' "$app/Contents/MacOS/DeveloperChristmasTree"
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
@@ -45,5 +52,6 @@ jobs:
           name: DeveloperChristmasTree-macOS-${{ matrix.arch }}
           path: |
             dist/*_macOS-*.zip
+            dist/*_macOS-*.dmg
             dist/*_macOS-*-SHA256SUMS.txt
           if-no-files-found: error
