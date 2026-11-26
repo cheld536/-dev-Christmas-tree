@@ -159,7 +159,6 @@ func (s *surface) draw(force bool) {
 	cols = clamp(cols, 1, 220)
 	rows = clamp(rows, 1, 100)
 	sceneCfg := cfg
-	sceneCfg.Spectrum = false
 	sceneCfg.Message = ""
 	elapsed := now.Sub(s.begin)
 	story := storyDuring(s.previewStory, now.Sub(s.previewStoryStart))

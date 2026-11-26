@@ -17,7 +17,7 @@ type Settings struct {
 	FullscreenResolution                                                                    string
 	CodeStyle                                                                               int
 	AudioGain, BassGain, MidGain, HighGain                                                  int
-	Spectrum, ShowBPM, SafeLights, LowPower, Stories                                        bool
+	Spectrum, RingSpectrum, ShowBPM, SafeLights, LowPower, Stories                          bool
 	Snow, Ornaments, Messages, Bloom, Matrix, Countdown, Monitor, Music, Multi, SnowPhysics bool
 }
 
@@ -90,6 +90,9 @@ func normalize(s Settings) Settings {
 		s.Message = string(r[:100])
 	}
 	s.Couple = normalizeCouple(s.Couple)
+	if s.RingSpectrum {
+		s.Spectrum = false
+	}
 	return s
 }
 func rgb(r, g, b int) uint32 {
@@ -137,7 +140,7 @@ func radius(y float64) float64 {
 	return .025
 }
 
-const trunkBottom = -1.37
+const trunkBottom = -1.502
 
 func tree() []Point {
 	r := rand.New(rand.NewSource(1225))
@@ -167,7 +170,7 @@ func tree() []Point {
 		y := -.86 + r.Float64()*1.83
 		add(y, r.Float64()*2*math.Pi, radius(y)+.075, "{}<>01@$%&"[r.Intn(10)], 3, r.Float64())
 	}
-	for i := 0; i < 22; i++ {
+	for i := 0; i < 28; i++ {
 		for j := 0; j < 22; j++ {
 			add(trunkBottom+float64(i)*.022, 2*math.Pi*float64(j)/22, .105, '|', 4, 0)
 		}
@@ -377,7 +380,7 @@ func composeFrame(cols, rows int, t, angle float64, af AudioFrame, s Settings, s
 	}{{0, -2, '|'}, {-1, -1, '\\'}, {0, -1, '*'}, {1, -1, '/'}, {-2, 0, '-'}, {-1, 0, '-'}, {0, 0, '@'}, {1, 0, '-'}, {2, 0, '-'}, {-1, 1, '/'}, {1, 1, '\\'}} {
 		put(sx+q.x, sy+q.y, q.c, shade(0xFFE78B, .76+.24*math.Max(high, af.Beat)), 1e5, true)
 	}
-	if s.Music && s.Spectrum && af.Level > .015 && rows > 22 {
+	if s.Music && s.RingSpectrum && af.Level > .015 && rows > 22 {
 		for i, v := range af.Spectrum {
 			a := 2*math.Pi*float64(i)/64 + angle*.25
 			x, y, d := project(math.Cos(a)*1.14, -1.28, math.Sin(a)*1.14)

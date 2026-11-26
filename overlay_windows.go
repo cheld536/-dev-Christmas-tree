@@ -225,7 +225,7 @@ func (s *surface) drawOverlay(ww, hh, sceneH, treeH int, couple coupleDisplay) {
 		}
 	}
 	if s.saver && fullScreen && overlayVisible && ww >= 360 && sceneH >= 280 {
-		keys := [][2]string{{"F11 / Esc", "돌아가기"}, {"Space", "회전 멈춤"}, {"↑ / ↓", "회전 속도"}, {"← / →", "회전 방향"}, {"C / D", "색상 / 코드 스타일"}, {"A / P", "음악 / 프리셋"}, {"S / M", "눈 / 코드 비"}, {"B / V", "빛 / 이퀄라이저"}, {"G / J", "음악 강도"}, {"Z / X / N", "이전 / 재생 / 다음"}, {"Tab", "시스템 사용량"}, {"H", "단축키 닫기"}}
+		keys := [][2]string{{"F11 / Esc", "돌아가기"}, {"Space", "회전 멈춤"}, {"↑ / ↓", "회전 속도"}, {"← / →", "회전 방향"}, {"C / D", "색상 / 코드 스타일"}, {"A / P", "음악 / 프리셋"}, {"S / M", "눈 / 코드 비"}, {"B / V", "빛 / 하단 막대"}, {"G / J", "음악 강도"}, {"Z / X / N", "이전 / 재생 / 다음"}, {"Tab", "시스템 사용량"}, {"H", "단축키 닫기"}}
 		width := clamp(ww/3, 320, 490)
 		x := ww - width - pad
 		y := pad

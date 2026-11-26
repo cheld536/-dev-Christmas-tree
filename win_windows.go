@@ -349,6 +349,7 @@ const (
 	idStories              = 172
 	idStoryPreview         = 173
 	idStoryStatus          = 174
+	idRingSpectrum         = 175
 )
 
 func selectCombo(id int, items []string, s string) {
@@ -377,7 +378,7 @@ func uiSet() {
 	for id, v := range map[int]int{idSpeed: cfg.Speed, idLight: cfg.LightSpeed, idFPS: cfg.FPS, idSize: cfg.Size, idAudioGain: cfg.AudioGain, idBassGain: cfg.BassGain, idMidGain: cfg.MidGain, idHighGain: cfg.HighGain} {
 		send(controls[id], 0x405, 1, uintptr(v))
 	}
-	for id, v := range map[int]bool{idSnow: cfg.Snow, idOrn: cfg.Ornaments, idMsg: cfg.Messages, idBloom: cfg.Bloom, idMatrix: cfg.Matrix, idCount: cfg.Countdown, idMonitor: cfg.Monitor, idMusic: cfg.Music, idMulti: cfg.Multi, idPhysics: cfg.SnowPhysics, idSpectrum: cfg.Spectrum, idBPM: cfg.ShowBPM, idSafe: cfg.SafeLights, idLowPower: cfg.LowPower, idStories: cfg.Stories} {
+	for id, v := range map[int]bool{idSnow: cfg.Snow, idOrn: cfg.Ornaments, idMsg: cfg.Messages, idBloom: cfg.Bloom, idMatrix: cfg.Matrix, idCount: cfg.Countdown, idMonitor: cfg.Monitor, idMusic: cfg.Music, idMulti: cfg.Multi, idPhysics: cfg.SnowPhysics, idSpectrum: cfg.Spectrum, idRingSpectrum: cfg.RingSpectrum, idBPM: cfg.ShowBPM, idSafe: cfg.SafeLights, idLowPower: cfg.LowPower, idStories: cfg.Stories} {
 		setToggle(id, v)
 	}
 	set(controls[idCustom], "트리 색상  "+cfg.Custom)
@@ -408,7 +409,7 @@ func uiRead() {
 			set(controls[id+100], s)
 		}
 	}
-	for id, p := range map[int]*bool{idSnow: &cfg.Snow, idOrn: &cfg.Ornaments, idMsg: &cfg.Messages, idBloom: &cfg.Bloom, idMatrix: &cfg.Matrix, idCount: &cfg.Countdown, idMonitor: &cfg.Monitor, idMusic: &cfg.Music, idMulti: &cfg.Multi, idPhysics: &cfg.SnowPhysics, idSpectrum: &cfg.Spectrum, idBPM: &cfg.ShowBPM, idSafe: &cfg.SafeLights, idLowPower: &cfg.LowPower, idStories: &cfg.Stories} {
+	for id, p := range map[int]*bool{idSnow: &cfg.Snow, idOrn: &cfg.Ornaments, idMsg: &cfg.Messages, idBloom: &cfg.Bloom, idMatrix: &cfg.Matrix, idCount: &cfg.Countdown, idMonitor: &cfg.Monitor, idMusic: &cfg.Music, idMulti: &cfg.Multi, idPhysics: &cfg.SnowPhysics, idSpectrum: &cfg.Spectrum, idRingSpectrum: &cfg.RingSpectrum, idBPM: &cfg.ShowBPM, idSafe: &cfg.SafeLights, idLowPower: &cfg.LowPower, idStories: &cfg.Stories} {
 		*p = toggleState[id]
 	}
 	cfg.Message = txt(controls[idMessage])
@@ -492,7 +493,16 @@ func fileDialog(export bool) string {
 }
 func command(id int) {
 	if toggleIDs[id] {
-		setToggle(id, !toggleState[id])
+		enabled := !toggleState[id]
+		setToggle(id, enabled)
+		if enabled {
+			switch id {
+			case idSpectrum:
+				setToggle(idRingSpectrum, false)
+			case idRingSpectrum:
+				setToggle(idSpectrum, false)
+			}
+		}
 		uiRead()
 		if s := surfaces[settingsPreview]; id == idStories && !cfg.Stories && s != nil {
 			s.previewStoryStart = time.Time{}
@@ -645,16 +655,17 @@ func setupUI() {
 	slider(idHighGain, 805, 342, 0, 200)
 	label("저음·중음·고음은 '직접 설정'에서 적용돼요.", 649, 381, 427, 24)
 	heading("화면 옵션", 649, 425, 400, 26, sectionFont)
-	check(idSpectrum, 649, 459, "이퀄라이저")
-	check(idBPM, 869, 459, "BPM 표시")
-	check(idSafe, 649, 495, "빛 변화 줄이기")
-	check(idLowPower, 869, 495, "저전력 모드")
-	check(idMonitor, 649, 531, "시스템 사용량")
-	check(idMulti, 869, 531, "모든 모니터")
-	check(idPhysics, 649, 567, "바람과 눈 쌓임")
-	check(idStories, 869, 567, "성탄 이야기")
-	button(idStoryPreview, 649, 605, 205, "이야기 미리보기")
-	child("STATIC", noStory.title(), 0, 869, 611, 207, 24, idStoryStatus)
+	check(idSpectrum, 649, 451, "하단 막대 이퀄라이저")
+	check(idRingSpectrum, 869, 451, "트리 둘레 이퀄라이저")
+	check(idBPM, 649, 483, "BPM 표시")
+	check(idSafe, 869, 483, "빛 변화 줄이기")
+	check(idLowPower, 649, 515, "저전력 모드")
+	check(idMonitor, 869, 515, "시스템 사용량")
+	check(idMulti, 649, 547, "모든 모니터")
+	check(idPhysics, 869, 547, "바람과 눈 쌓임")
+	check(idStories, 649, 579, "성탄 이야기")
+	button(idStoryPreview, 649, 612, 205, "이야기 미리보기")
+	child("STATIC", noStory.title(), 0, 869, 618, 207, 24, idStoryStatus)
 	buildPage = 3
 	setupCouplePage()
 	buildPage = 0
@@ -762,6 +773,9 @@ func fullKey(key uintptr) {
 		}
 	case 'V':
 		cfg.Spectrum = !cfg.Spectrum
+		if cfg.Spectrum {
+			cfg.RingSpectrum = false
+		}
 	case 'Z', 'X', 'N':
 		if key == 'Z' {
 			mediaKey(0xB1)
@@ -811,7 +825,7 @@ func fullKey(key uintptr) {
 	case 'A':
 		toastText = onOff("음악 반응", cfg.Music)
 	case 'V':
-		toastText = onOff("이퀄라이저", cfg.Spectrum)
+		toastText = onOff("하단 막대 이퀄라이저", cfg.Spectrum)
 	case 9:
 		toastText = onOff("시스템 사용량", cfg.Monitor)
 	default:

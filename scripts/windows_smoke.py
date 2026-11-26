@@ -173,6 +173,29 @@ def verify_app(app, env, config, version):
             command(hwnd, 173)
             wait(lambda: text(story_status) == scene, f"이야기 미리보기 {scene}")
         print("성탄 이야기 다섯 장면 전환, 순환 및 자동 재생 끄기 통과", flush=True)
+        def equalizers():
+            settings = json.loads(config.read_bytes())
+            return settings["Spectrum"], settings["RingSpectrum"]
+
+        assert text(USER32.GetDlgItem(hwnd, 155)) == "하단 막대 이퀄라이저"
+        assert text(USER32.GetDlgItem(hwnd, 175)) == "트리 둘레 이퀄라이저"
+        assert equalizers() == (True, False)
+        for control, expected_modes in [(175, (False, True)), (155, (True, False)),
+                                        (155, (False, False)), (175, (False, True))]:
+            command(hwnd, control)
+            command(hwnd, 140)
+            wait(lambda: equalizers() == expected_modes, f"이퀄라이저 전환 및 저장 {expected_modes}")
+        post(hwnd, 0x100, 0x7A)
+        fullscreen = window(process, "DCTRender")
+        post(fullscreen, 0x100, ord("V"))
+        post(fullscreen, 0x100, 0x1B)
+        wait(lambda: not visible_windows(process, "DCTRender"), "하단 막대 전환 후 전체 화면 종료")
+        command(hwnd, 140)
+        wait(lambda: equalizers() == (True, False), "전체 화면 V로 하단 막대를 켜면 둘레 막대 끄기")
+        command(hwnd, 175)
+        command(hwnd, 140)
+        wait(lambda: equalizers() == (False, True), "트리 둘레 이퀄라이저를 다시 선택")
+        print("이퀄라이저 동시 표시 방지, 둘 다 끄기, 전체 화면 V 키 및 저장 통과", flush=True)
         combo = USER32.GetDlgItem(hwnd, 160)
         assert combo and USER32.SendMessageW(combo, 0x146, 0, 0) == 3
         for index, label in [(1, "1080p"), (2, "4K")]:
@@ -199,6 +222,7 @@ def verify_app(app, env, config, version):
         hwnd = window(process, "DCTMain")
         command(hwnd, 140)
         assert json.loads(config.read_bytes())["Stories"] is False
+        assert equalizers() == (False, True)
         command(hwnd, 162)
         status = USER32.GetDlgItem(hwnd, 167)
         wait(lambda: USER32.IsWindowVisible(status) and text(status) == expected_caption, "재실행 후 기념일 유지")

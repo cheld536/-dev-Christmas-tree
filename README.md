@@ -4,12 +4,16 @@ Windows에서 돌아가는 3D ASCII 크리스마스 트리입니다. 음악에 �
 
 | 시작 방법 | 다운로드 및 실행 |
 | --- | --- |
-| **최신 정식 릴리스 v2.4.2** · Windows 10/11 x64 | [설치 EXE](https://github.com/cheld536/-dev-Christmas-tree/releases/download/v2.4.2/DeveloperChristmasTree_v2.4.2_Setup.exe) · [릴리스 및 SHA256](https://github.com/cheld536/-dev-Christmas-tree/releases/tag/v2.4.2) · [설치 방법](#exe로-설치하기) |
+| **최신 정식 릴리스 v2.4.3** · Windows 10/11 x64 | [설치 EXE](https://github.com/cheld536/-dev-Christmas-tree/releases/download/v2.4.3/DeveloperChristmasTree_v2.4.3_Setup.exe) · [릴리스 및 SHA256](https://github.com/cheld536/-dev-Christmas-tree/releases/tag/v2.4.3) · [설치 방법](#exe로-설치하기) |
 | **Python v1** · Tkinter와 터미널 | [Python 소스로 실행하기](#python-소스로-실행하기) |
 
 ![v2.4.2의 음악과 효과 탭에서 루돌프와 산타 썰매를 미리 보는 화면](docs/images/story-settings-v2.4.2.png)
 
-## v2.4.2에서 달라진 점
+## v2.4.3에서 달라진 점
+
+**음악과 효과**에서 **트리 둘레 이퀄라이저**를 켜면 무지개색 막대가 음악에 반응하며 트리 아래쪽을 돕니다. **하단 막대 이퀄라이저**를 켜면 트리 둘레 막대가 자동으로 꺼집니다. 두 효과를 모두 끌 수도 있습니다. 트리 줄기는 아래쪽으로 조금 길어졌습니다.
+
+## 주요 기능
 
 ### 성탄 이야기
 
@@ -48,7 +52,7 @@ Windows에서 돌아가는 3D ASCII 크리스마스 트리입니다. 음악에 �
 
 Windows용 v2 설치 EXE에는 실행에 필요한 파일이 포함되어 있습니다.
 
-1. [v2.4.2 릴리스](https://github.com/cheld536/-dev-Christmas-tree/releases/tag/v2.4.2)의 **Assets**에서 **`DeveloperChristmasTree_v2.4.2_Setup.exe`**를 내려받습니다. 기존 트리 창이 열려 있으면 먼저 닫습니다.
+1. [v2.4.3 릴리스](https://github.com/cheld536/-dev-Christmas-tree/releases/tag/v2.4.3)의 **Assets**에서 **`DeveloperChristmasTree_v2.4.3_Setup.exe`**를 내려받습니다. 기존 트리 창이 열려 있으면 먼저 닫습니다.
 2. 설치 파일을 두 번 클릭합니다. **바탕 화면에 바로가기 만들기**는 기본으로 선택되어 있습니다. 화면 보호기도 등록하려면 **Windows 화면 보호기로 사용**을 선택한 뒤 **설치**를 누릅니다.
 3. 설치가 끝나면 **실행**을 누릅니다. 이후에는 시작 메뉴나 바탕 화면에서 **Developer Christmas Tree**를 엽니다.
 4. 테마·회전·음악 반응을 조절하고 **저장**을 누릅니다. **F11**로 일반 전체 화면을 열고 **Esc** 또는 **F11**로 돌아갑니다. **화면 보호기 미리보기**로 화면 보호기 동작을 확인할 수 있습니다.
@@ -63,6 +67,7 @@ Windows용 v2 설치 EXE에는 실행에 필요한 파일이 포함되어 있습
 
 | 버전 | EXE 바로 받기 | 실행 방식 |
 | --- | --- | --- |
+| [v2.4.3](https://github.com/cheld536/-dev-Christmas-tree/releases/tag/v2.4.3) | [DeveloperChristmasTree_v2.4.3_Setup.exe](https://github.com/cheld536/-dev-Christmas-tree/releases/download/v2.4.3/DeveloperChristmasTree_v2.4.3_Setup.exe) | Windows 설치 |
 | [v2.4.2](https://github.com/cheld536/-dev-Christmas-tree/releases/tag/v2.4.2) | [DeveloperChristmasTree_v2.4.2_Setup.exe](https://github.com/cheld536/-dev-Christmas-tree/releases/download/v2.4.2/DeveloperChristmasTree_v2.4.2_Setup.exe) | Windows 설치 |
 | [v2.4.0](https://github.com/cheld536/-dev-Christmas-tree/releases/tag/v2.4.0) | [DeveloperChristmasTree_v2.4_Setup.exe](https://github.com/cheld536/-dev-Christmas-tree/releases/download/v2.4.0/DeveloperChristmasTree_v2.4_Setup.exe) | Windows 설치 |
 | [v2.3.0](https://github.com/cheld536/-dev-Christmas-tree/releases/tag/v2.3.0) | [DeveloperChristmasTree_v2.3_Setup.exe](https://github.com/cheld536/-dev-Christmas-tree/releases/download/v2.3.0/DeveloperChristmasTree_v2.3_Setup.exe) | Windows 설치 |
@@ -74,11 +79,11 @@ Windows용 v2 설치 EXE에는 실행에 필요한 파일이 포함되어 있습
 <details>
 <summary>다운로드한 파일의 SHA256 확인</summary>
 
-검사할 EXE와 같은 버전의 검사값 파일을 같은 폴더로 내려받습니다. 그 폴더에서 PowerShell을 열고 두 명령이 출력하는 64자리 검사값을 비교합니다. 아래 예시는 v2.4.2 기준입니다.
+검사할 EXE와 같은 버전의 검사값 파일을 같은 폴더로 내려받습니다. 그 폴더에서 PowerShell을 열고 두 명령이 출력하는 64자리 검사값을 비교합니다. 아래 예시는 v2.4.3 기준입니다.
 
 ```powershell
-Get-FileHash -Algorithm SHA256 .\DeveloperChristmasTree_v2.4.2_Setup.exe
-Get-Content .\v2.4.2-SHA256SUMS.txt
+Get-FileHash -Algorithm SHA256 .\DeveloperChristmasTree_v2.4.3_Setup.exe
+Get-Content .\v2.4.3-SHA256SUMS.txt
 ```
 
 </details>
@@ -87,9 +92,9 @@ Get-Content .\v2.4.2-SHA256SUMS.txt
 
 1. 설정 창 오른쪽 위 **음악과 효과** 탭을 열고 **음악 반응**을 켭니다.
 2. PC에서 음악을 재생합니다. **음악 스타일**과 **반응 강도**를 바꾸면 트리 조명의 반응이 달라집니다. 저음·중음·고음을 따로 조절하려면 음악 스타일에서 **직접 설정**을 선택합니다.
-3. **이퀄라이저**를 켜면 미리보기 아래에 주파수 막대가 나타납니다. **BPM 표시**는 선택 사항입니다. 다음 실행에도 설정을 적용하려면 **저장**을 누릅니다.
+3. **트리 둘레 이퀄라이저** 또는 **하단 막대 이퀄라이저**를 켭니다. 선택한 효과를 다시 누르면 꺼집니다. **BPM 표시**는 선택 사항입니다. 다음 실행에도 설정을 적용하려면 **저장**을 누릅니다.
 
-전체 화면에서는 **A**로 음악 반응, **P**로 음악 프리셋, **V**로 이퀄라이저를 조절합니다. 오디오 반응은 Windows 시스템 소리를 사용합니다. 곡명·아티스트·진행률·앨범 커버는 재생 앱이 Windows에 제공할 때 표시됩니다.
+전체 화면에서는 **A**로 음악 반응, **P**로 음악 프리셋, **V**로 하단 막대 이퀄라이저를 조절합니다. 오디오 반응은 Windows 시스템 소리를 사용합니다. 곡명·아티스트·진행률·앨범 커버는 재생 앱이 Windows에 제공할 때 표시됩니다.
 
 ![음악 반응, 음악 스타일, 반응 강도, 이퀄라이저, BPM 표시가 보이는 v2.3 설정 화면](docs/images/audio-effects-v2.3.png)
 
@@ -135,7 +140,7 @@ Python 전체 화면은 키나 마우스 입력으로 닫을 수 있습니다. �
 | C / D | 색상 / 코드 스타일 |
 | A / P | 음악 반응 / 음악 프리셋 |
 | S / M | 눈 / 코드 비 |
-| B / V | 빛 번짐 / 이퀄라이저 |
+| B / V | 빛 번짐 / 하단 막대 이퀄라이저 |
 | G / J | 음악 반응 강도 |
 | Z / X / N | 이전 곡 / 재생·일시 정지 / 다음 곡 |
 | Tab | 시스템 사용량 |
@@ -151,7 +156,7 @@ Windows에서 Go 1.23 이상으로 아래 명령을 실행합니다. 아이콘 �
 .\build.ps1
 ```
 
-현재 개발 소스의 빌드 결과는 `dist/DeveloperChristmasTree_v2.4.2_Setup.exe`와 `dist/v2.4.2-SHA256SUMS.txt`입니다. 설치기는 먼저 빌드한 `setup/app.exe`를 포함합니다. Windows 아이콘 리소스는 빌드 시 생성됩니다. Python 테스트는 `legacy\python`에서 `py -3.13 -m unittest -v test_app`로 실행합니다.
+현재 소스의 빌드 결과는 `dist/DeveloperChristmasTree_v2.4.3_Setup.exe`와 `dist/v2.4.3-SHA256SUMS.txt`입니다. 설치기는 먼저 빌드한 `setup/app.exe`를 포함합니다. Windows 아이콘 리소스는 빌드 시 생성됩니다. Python 테스트는 `legacy\python`에서 `py -3.13 -m unittest -v test_app`로 실행합니다.
 
 개발 버전은 [VERSION](internal/buildinfo/VERSION)에서 관리합니다. 앱, 설치 창, 설치 정보, 기본 파일명과 검사값 파일명이 이 버전을 사용합니다. 릴리스 워크플로는 태그의 버전을 빌드에 전달합니다.
 

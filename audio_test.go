@@ -88,13 +88,26 @@ func TestAudioReactiveRendering(t *testing.T) {
 	if a.Beat >= af.Beat {
 		t.Fatal("safe mode not applied")
 	}
-	f := audioFrame(120, 52, 1, .4, a, s, "", false)
-	if reflect.DeepEqual(f, audioFrame(120, 52, 1, .4, AudioFrame{}, s, "", false)) {
+	bar := audioFrame(120, 52, 1, .4, a, s, "", false)
+	if reflect.DeepEqual(bar, audioFrame(120, 52, 1, .4, AudioFrame{}, s, "", false)) {
 		t.Fatal("no music reaction")
 	}
 	s.Spectrum = false
-	if reflect.DeepEqual(f, audioFrame(120, 52, 1, .4, a, s, "", false)) {
-		t.Fatal("spectrum switch has no effect")
+	off := audioFrame(120, 52, 1, .4, a, s, "", false)
+	if !reflect.DeepEqual(bar, off) {
+		t.Fatal("하단 막대 설정이 트리 장면을 변경합니다.")
+	}
+	s.Spectrum, s.RingSpectrum = true, true
+	s = normalize(s)
+	if s.Spectrum || !s.RingSpectrum {
+		t.Fatal("트리 둘레 이퀄라이저를 켜면 하단 막대가 꺼져야 합니다.")
+	}
+	if reflect.DeepEqual(off, audioFrame(120, 52, 1, .4, a, s, "", false)) {
+		t.Fatal("음악에 반응하는 트리 둘레 막대가 그려지지 않습니다.")
+	}
+	if !reflect.DeepEqual(audioFrame(120, 52, 1, .4, AudioFrame{}, s, "", false),
+		audioFrame(120, 52, 1, .4, AudioFrame{}, defaults(), "", false)) {
+		t.Fatal("무음일 때 트리 둘레 막대가 표시됩니다.")
 	}
 	s.Music = false
 	if reactive(s, af) != (AudioFrame{}) {
