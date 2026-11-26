@@ -350,6 +350,7 @@ const (
 	idStoryPreview         = 173
 	idStoryStatus          = 174
 	idRingSpectrum         = 175
+	idLockScreen           = 176
 )
 
 func selectCombo(id int, items []string, s string) {
@@ -564,6 +565,8 @@ func command(id int) {
 		}
 	case idWindows:
 		call(shell, "ShellExecuteW", mainwin, w("open"), w("control.exe"), w("desk.cpl,,@screensaver"), 0, 1)
+	case idLockScreen:
+		applyLockScreen(mainwin, cfg)
 	}
 }
 
@@ -607,7 +610,7 @@ func setupUI() {
 	button(idWindows, 410, 628, 200, "Windows 화면 보호기")
 	label("전체 화면 해상도", 30, 675, 135, 24)
 	combo(idResolution, 166, 672, fullscreenResolutions)
-	label("H  ·  SHORTCUTS", 412, 675, 195, 24)
+	button(idLockScreen, 410, 667, 200, "잠금 화면 이미지 적용")
 	button(idVisualPage, 649, 78, 136, "트리와 조명")
 	button(idAudioPage, 795, 78, 136, "음악과 효과")
 	button(idCouplePage, 941, 78, 136, "커플 기념일")
@@ -1014,8 +1017,15 @@ func mainProc(h, m, a, b uintptr) uintptr {
 			uiRead()
 			return 0
 		}
-		if notification == 0 && (toggleIDs[id] || (id >= 130 && id <= 148) || id == idCouplePage || id == idCoupleCalendarButton || id == idStoryPreview) {
+		if notification == 0 && (toggleIDs[id] || (id >= 130 && id <= 148) || id == idCouplePage || id == idCoupleCalendarButton || id == idStoryPreview || id == idLockScreen) {
 			command(id)
+		}
+		return 0
+	case wmLockScreenResult:
+		select {
+		case result := <-lockScreenResults:
+			finishLockScreen(h, result)
+		default:
 		}
 		return 0
 	case wmClose:

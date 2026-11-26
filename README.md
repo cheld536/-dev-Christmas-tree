@@ -18,6 +18,10 @@ Windows와 macOS에서 즐기는 3D ASCII 크리스마스 트리입니다. 트�
 
 **음악과 효과**에서 **트리 둘레 이퀄라이저**를 켜면 무지개색 막대가 음악에 반응하며 트리 아래쪽을 돕니다. **하단 막대 이퀄라이저**를 켜면 트리 둘레 막대가 자동으로 꺼집니다. 두 효과를 모두 끌 수도 있습니다. 트리 줄기는 아래쪽으로 조금 길어졌습니다.
 
+## v2.5.0 개발 중
+
+[Win+L 잠금 화면에 트리 이미지 적용하기](#윈도우-잠금-화면에-트리-이미지-적용하기)를 추가했습니다. 정식 Windows 설치기는 위 표의 v2.4.3이며, v2.5.0 설치기는 [Windows 빌드](https://github.com/cheld536/-dev-Christmas-tree/actions/workflows/windows.yml)의 성공한 `main` 실행에서 받을 수 있습니다.
+
 ## 주요 기능
 
 ### 성탄 이야기
@@ -67,6 +71,14 @@ Windows용 v2 설치 EXE에는 실행에 필요한 파일이 포함되어 있습
 음악에 반응하는 조명과 주파수 막대를 사용하려면 [음악과 효과 설정](#음악과-효과-설정)을 확인하세요.
 
 **화면 보호기 변경**은 앱의 **Windows 화면 보호기** 버튼에서 할 수 있습니다. 잠금이 필요하면 Windows 화면 보호기 설정에서 로그온 화면 표시를 선택합니다. **제거**는 Windows의 **설정 → 앱 → 설치된 앱 → Developer Christmas Tree**에서 진행합니다. 저장한 설정을 지울지 선택할 수 있습니다.
+
+### 윈도우 잠금 화면에 트리 이미지 적용하기
+
+1. v2.5.0 Windows 앱에서 테마와 배경을 고르고, 필요하면 **전체 화면 해상도**를 **4K**로 선택합니다. 기본 잠금 화면 이미지는 1080p입니다.
+2. **잠금 화면 이미지 적용**을 누릅니다. 현재 테마로 트리 PNG를 만들고 Windows에 잠금 화면 배경 적용을 요청합니다. 이름, 기념일과 사용자 문구는 이미지에 포함하지 않습니다.
+3. **잠금 화면에 적용됨**이 표시되면 **Win+L**로 확인합니다. Windows가 자동 적용을 지원하지 않으면 안내 창에서 **확인**을 눌러 **개인 설정 → 잠금 화면 → 사진**에서 저장한 PNG를 고릅니다.
+
+잠금 화면에서는 트리가 정지 이미지로 표시됩니다. 움직이는 트리는 **Windows 화면 보호기**에서 대기 시간을 지정해 사용할 수 있으며, 복귀 시 로그온 화면 표시 옵션도 그대로 사용할 수 있습니다.
 
 ### 정식 버전별 다운로드
 
@@ -186,7 +198,7 @@ Windows에서 Go 1.23 이상으로 아래 명령을 실행합니다. 아이콘 �
 .\build.ps1
 ```
 
-현재 소스의 빌드 결과는 `dist/DeveloperChristmasTree_v2.4.3_Setup.exe`와 `dist/v2.4.3-SHA256SUMS.txt`입니다. 설치기는 먼저 빌드한 `setup/app.exe`를 포함합니다. Windows 아이콘 리소스는 빌드 시 생성됩니다. Python 테스트는 `legacy\python`에서 `py -3.13 -m unittest -v test_app`로 실행합니다.
+현재 소스의 빌드 결과는 `dist/DeveloperChristmasTree_v2.5_Setup.exe`와 `dist/v2.5.0-SHA256SUMS.txt`입니다. 설치기는 먼저 빌드한 `setup/app.exe`를 포함합니다. Windows 아이콘 리소스는 빌드 시 생성됩니다. Python 테스트는 `legacy\python`에서 `py -3.13 -m unittest -v test_app`로 실행합니다.
 
 ### macOS 앱과 통합 설치 패키지
 
@@ -196,12 +208,12 @@ Go 1.23 이상, Python 3, Xcode 명령줄 도구가 설치된 Mac에서 아래 �
 bash build-macos.sh
 ```
 
-빌드한 Mac의 아키텍처에 따라 `dist/DeveloperChristmasTree_v2.4.3_macOS-arm64.dmg` 또는 `dist/DeveloperChristmasTree_v2.4.3_macOS-x86_64.dmg`가 생성됩니다. 앱 ZIP과 각 파일의 SHA256 검사 파일도 생성됩니다. macOS CI는 두 아키텍처에서 DMG를 열고 앱을 복사해 실행까지 확인합니다.
+빌드한 Mac의 아키텍처에 따라 `dist/DeveloperChristmasTree_v2.5.0_macOS-arm64.dmg` 또는 `dist/DeveloperChristmasTree_v2.5.0_macOS-x86_64.dmg`가 생성됩니다. 앱 ZIP과 각 파일의 SHA256 검사 파일도 생성됩니다. macOS CI는 두 아키텍처에서 DMG를 열고 앱을 복사해 실행까지 확인합니다.
 
 두 아키텍처에서 생성한 앱 ZIP을 전달하면 통합 설치 패키지가 만들어집니다.
 
 ```bash
-bash build-macos-installer.sh DeveloperChristmasTree_v2.4.3_macOS-arm64.zip DeveloperChristmasTree_v2.4.3_macOS-x86_64.zip
+bash build-macos-installer.sh DeveloperChristmasTree_v2.5.0_macOS-arm64.zip DeveloperChristmasTree_v2.5.0_macOS-x86_64.zip
 ```
 
 배포용 패키지를 만들려면 키체인에 Developer ID Application·Installer 인증서와 `notarytool` 프로필을 준비하고, 각각 `DCT_MAC_APP_IDENTITY`, `DCT_MAC_INSTALLER_IDENTITY`, `DCT_MAC_NOTARY_PROFILE`로 지정합니다. 스크립트가 앱과 설치 패키지에 서명하고, Apple이 공증을 승인하면 티켓을 첨부합니다.

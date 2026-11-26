@@ -5,6 +5,7 @@ from datetime import date, timedelta
 import json
 import os
 from pathlib import Path
+import struct
 import subprocess
 import tempfile
 import time
@@ -115,12 +116,29 @@ def stop(process):
     process.wait(timeout=15)
 
 
-def verify_app(app, env, config, version):
+def verify_app(app, env, config, version, check_lock_screen=False):
     process = start(app, env)
     try:
         hwnd = window(process, "DCTMain")
         assert text(hwnd) == "Developer Christmas Tree"
         assert text(USER32.GetDlgItem(hwnd, 161)) == "v" + version
+        lock_control = USER32.GetDlgItem(hwnd, 176)
+        assert text(lock_control) == "잠금 화면 이미지 적용"
+        if check_lock_screen:
+            command(hwnd, 176)
+            applied = "잠금 화면에 적용됨"
+            wait(lambda: text(lock_control) == applied or visible_windows(process, "#32770"),
+                 "잠금 화면 이미지 적용 요청 완료")
+            if text(lock_control) != applied:
+                dialog(process, "이미지를 저장했습니다.", 2)
+                print("자동 적용을 지원하지 않는 환경의 사진 선택 안내 통과", flush=True)
+            else:
+                print("Windows 잠금 화면 이미지 적용 API 성공", flush=True)
+            saved, = (config.parent / "lock-screen").glob("Christmas-Tree-*.png")
+            header = saved.read_bytes()[:24]
+            assert header.startswith(b"\x89PNG\r\n\x1a\n")
+            assert struct.unpack(">II", header[16:24]) == (1920, 1080)
+            print("잠금 화면용 1080p PNG 저장 통과", flush=True)
         command(hwnd, 162)
         assert text(USER32.GetDlgItem(hwnd, 162)) == "커플 기념일"
         fields = {key: USER32.GetDlgItem(hwnd, key) for key in (164, 165, 166, 167)}
@@ -365,7 +383,7 @@ def verify_setup(setup, app, ui_only, version, legacy, previous):
             assert Path(registry(DESKTOP, "SCRNSAVE.EXE")[0]) == scr
             assert registry(DESKTOP, "ScreenSaverIsSecure") == desktop["ScreenSaverIsSecure"]
             print("설치, 버전 등록, 화면 보호기 등록 통과", flush=True)
-            verify_app(installed_app, env, config, version)
+            verify_app(installed_app, env, config, version, check_lock_screen=True)
         finally:
             uninstaller = destination / "Uninstall.exe"
             if uninstaller.exists():

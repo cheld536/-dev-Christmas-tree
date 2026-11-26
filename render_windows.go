@@ -258,31 +258,37 @@ func (s *surface) drawGDI(f Frame, ww, hh, cw, ch, ox, oy, size, sceneH, treeH i
 		s.height = size
 	}
 	r := rect{0, 0, int32(ww), int32(hh)}
-	brush := call(g, "CreateSolidBrush", cr(f.BG))
-	call(u, "FillRect", s.mem, ptr(&r), brush)
-	call(g, "DeleteObject", brush)
-	old := call(g, "SelectObject", s.mem, s.gdifont)
-	call(g, "SetBkMode", s.mem, 1)
+	fill(s.mem, r, f.BG)
+	var glow float64
 	if cfg.Bloom && !cfg.LowPower {
+		glow = .10 + .06*audioState.Level
+	}
+	drawTreeCells(s.mem, s.gdifont, f, cw, ch, ox, oy, glow)
+	s.drawOverlay(ww, hh, sceneH, treeH, couple)
+}
+
+func drawTreeCells(dc, font uintptr, f Frame, cw, ch, ox, oy int, glow float64) {
+	old := call(g, "SelectObject", dc, font)
+	call(g, "SetBkMode", dc, 1)
+	if glow > 0 {
 		for _, v := range f.Cells {
 			if !v.Glow {
 				continue
 			}
 			x, y := ox+v.X*cw, oy+v.Y*ch
 			rr := rect{int32(x), int32(y + 2), int32(x + cw), int32(y + ch - 2)}
-			rounded(s.mem, rr, 6, shade(v.Color, .10+.06*audioState.Level))
+			rounded(dc, rr, 6, shade(v.Color, glow))
 		}
 	}
 	for _, v := range f.Cells {
-		call(g, "SetTextColor", s.mem, cr(v.Color))
+		call(g, "SetTextColor", dc, cr(v.Color))
 		chv := uint16(v.Ch)
 		if v.Ch > 0xffff {
 			chv = '?'
 		}
-		call(g, "TextOutW", s.mem, uintptr(ox+v.X*cw), uintptr(oy+v.Y*ch), ptr(&chv), 1)
+		call(g, "TextOutW", dc, uintptr(ox+v.X*cw), uintptr(oy+v.Y*ch), ptr(&chv), 1)
 	}
-	call(g, "SelectObject", s.mem, old)
-	s.drawOverlay(ww, hh, sceneH, treeH, couple)
+	call(g, "SelectObject", dc, old)
 }
 
 func effectiveFPS() int {
