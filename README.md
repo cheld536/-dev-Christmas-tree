@@ -1,10 +1,11 @@
 # 🎄 Developer Christmas Tree
 
-Windows에서 돌아가는 3D ASCII 크리스마스 트리입니다. 음악에 맞춰 조명이 바뀌고, 트리 아래에는 개발자 문구나 커플 기념일이 표시됩니다.
+Windows와 macOS에서 즐기는 3D ASCII 크리스마스 트리입니다. 트리 아래에는 개발자 문구나 커플 기념일이 표시되며, Windows에서는 시스템 음악에 맞춰 조명이 바뀝니다.
 
 | 시작 방법 | 다운로드 및 실행 |
 | --- | --- |
 | **최신 정식 릴리스 v2.4.3** · Windows 10/11 x64 | [설치 EXE](https://github.com/cheld536/-dev-Christmas-tree/releases/download/v2.4.3/DeveloperChristmasTree_v2.4.3_Setup.exe) · [릴리스 및 SHA256](https://github.com/cheld536/-dev-Christmas-tree/releases/tag/v2.4.3) · [설치 방법](#exe로-설치하기) |
+| **macOS 앱** · Apple Silicon / Intel · macOS 12 이상 대상 | [macOS에서 실행하기](#macos에서-실행하기) |
 | **Python v1** · Tkinter와 터미널 | [Python 소스로 실행하기](#python-소스로-실행하기) |
 
 ![v2.4.2의 음악과 효과 탭에서 루돌프와 산타 썰매를 미리 보는 화면](docs/images/story-settings-v2.4.2.png)
@@ -87,6 +88,16 @@ Get-Content .\v2.4.3-SHA256SUMS.txt
 ```
 
 </details>
+
+## macOS에서 실행하기
+
+1. [macOS 앱 빌드](https://github.com/cheld536/-dev-Christmas-tree/actions/workflows/macos.yml)에서 성공한 `main` 실행을 엽니다. GitHub에 로그인한 뒤 **Artifacts**에서 Apple Silicon은 **DeveloperChristmasTree-macOS-arm64**, Intel Mac은 **DeveloperChristmasTree-macOS-x86_64**를 받습니다.
+2. 첫 ZIP을 풀면 앱 배포 ZIP과 SHA256 검사 파일이 나옵니다. 앱 배포 ZIP을 풀고 **Developer Christmas Tree.app**을 응용 프로그램 폴더로 옮겨 실행합니다.
+3. 오른쪽에서 테마·회전·눈·성탄 이야기를 설정합니다. **전체 화면** 버튼 또는 **Control+Command+F**로 전체 화면을 전환합니다. 설정은 Mac에 자동으로 저장됩니다.
+
+macOS 앱은 트리 테마, 성탄 이야기, 개발자 인사말, 커플 기념일 달력과 빨간 하트를 지원합니다. 시스템 음악 반응과 미디어 제어, Windows 화면 보호기 등록은 Windows판 기능입니다.
+
+Actions 앱은 개발자 ID 서명과 Apple 공증이 적용되지 않은 개발 빌드입니다. Mac에서 직접 빌드하려면 Go 1.23 이상, Python 3, Xcode 명령줄 도구가 설치된 상태에서 저장소 최상위에서 `bash build-macos.sh`를 실행합니다. 앱 ZIP과 SHA256 검사 파일은 `dist/`에 생성됩니다.
 
 ## 음악과 효과 설정
 

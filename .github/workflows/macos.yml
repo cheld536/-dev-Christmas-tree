@@ -1,0 +1,49 @@
+name: macOS app
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: macOS (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            arch: arm64
+          - runner: macos-15-intel
+            arch: x86_64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Go 테스트와 macOS 앱 빌드
+        run: |
+          go test ./...
+          bash build-macos.sh
+      - name: ZIP 검사와 macOS 창 실행 검증
+        run: |
+          (cd dist && shasum -a 256 -c *-SHA256SUMS.txt)
+          mkdir "$RUNNER_TEMP/dct"
+          ditto -x -k dist/*.zip "$RUNNER_TEMP/dct"
+          app="$RUNNER_TEMP/dct/Developer Christmas Tree.app"
+          codesign --verify --deep --strict "$app"
+          python3 -c 'import subprocess, sys; subprocess.run([sys.argv[1], "--smoke-test"], check=True, timeout=45)' "$app/Contents/MacOS/DeveloperChristmasTree"
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: DeveloperChristmasTree-macOS-${{ matrix.arch }}
+          path: |
+            dist/*_macOS-*.zip
+            dist/*_macOS-*-SHA256SUMS.txt
+          if-no-files-found: error
