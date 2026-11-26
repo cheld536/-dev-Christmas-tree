@@ -346,6 +346,9 @@ const (
 	idCoupleCalendar       = 169
 	idCoupleDayHint        = 170
 	idCouplePrivacy        = 171
+	idStories              = 172
+	idStoryPreview         = 173
+	idStoryStatus          = 174
 )
 
 func selectCombo(id int, items []string, s string) {
@@ -374,7 +377,7 @@ func uiSet() {
 	for id, v := range map[int]int{idSpeed: cfg.Speed, idLight: cfg.LightSpeed, idFPS: cfg.FPS, idSize: cfg.Size, idAudioGain: cfg.AudioGain, idBassGain: cfg.BassGain, idMidGain: cfg.MidGain, idHighGain: cfg.HighGain} {
 		send(controls[id], 0x405, 1, uintptr(v))
 	}
-	for id, v := range map[int]bool{idSnow: cfg.Snow, idOrn: cfg.Ornaments, idMsg: cfg.Messages, idBloom: cfg.Bloom, idMatrix: cfg.Matrix, idCount: cfg.Countdown, idMonitor: cfg.Monitor, idMusic: cfg.Music, idMulti: cfg.Multi, idPhysics: cfg.SnowPhysics, idSpectrum: cfg.Spectrum, idBPM: cfg.ShowBPM, idSafe: cfg.SafeLights, idLowPower: cfg.LowPower} {
+	for id, v := range map[int]bool{idSnow: cfg.Snow, idOrn: cfg.Ornaments, idMsg: cfg.Messages, idBloom: cfg.Bloom, idMatrix: cfg.Matrix, idCount: cfg.Countdown, idMonitor: cfg.Monitor, idMusic: cfg.Music, idMulti: cfg.Multi, idPhysics: cfg.SnowPhysics, idSpectrum: cfg.Spectrum, idBPM: cfg.ShowBPM, idSafe: cfg.SafeLights, idLowPower: cfg.LowPower, idStories: cfg.Stories} {
 		setToggle(id, v)
 	}
 	set(controls[idCustom], "트리 색상  "+cfg.Custom)
@@ -405,7 +408,7 @@ func uiRead() {
 			set(controls[id+100], s)
 		}
 	}
-	for id, p := range map[int]*bool{idSnow: &cfg.Snow, idOrn: &cfg.Ornaments, idMsg: &cfg.Messages, idBloom: &cfg.Bloom, idMatrix: &cfg.Matrix, idCount: &cfg.Countdown, idMonitor: &cfg.Monitor, idMusic: &cfg.Music, idMulti: &cfg.Multi, idPhysics: &cfg.SnowPhysics, idSpectrum: &cfg.Spectrum, idBPM: &cfg.ShowBPM, idSafe: &cfg.SafeLights, idLowPower: &cfg.LowPower} {
+	for id, p := range map[int]*bool{idSnow: &cfg.Snow, idOrn: &cfg.Ornaments, idMsg: &cfg.Messages, idBloom: &cfg.Bloom, idMatrix: &cfg.Matrix, idCount: &cfg.Countdown, idMonitor: &cfg.Monitor, idMusic: &cfg.Music, idMulti: &cfg.Multi, idPhysics: &cfg.SnowPhysics, idSpectrum: &cfg.Spectrum, idBPM: &cfg.ShowBPM, idSafe: &cfg.SafeLights, idLowPower: &cfg.LowPower, idStories: &cfg.Stories} {
 		*p = toggleState[id]
 	}
 	cfg.Message = txt(controls[idMessage])
@@ -491,6 +494,10 @@ func command(id int) {
 	if toggleIDs[id] {
 		setToggle(id, !toggleState[id])
 		uiRead()
+		if s := surfaces[settingsPreview]; id == idStories && !cfg.Stories && s != nil {
+			s.previewStoryStart = time.Time{}
+			set(controls[idStoryStatus], noStory.title())
+		}
 		return
 	}
 	uiRead()
@@ -516,6 +523,12 @@ func command(id int) {
 		page(1)
 	case idAudioPage:
 		page(2)
+	case idStoryPreview:
+		if s := surfaces[settingsPreview]; s != nil {
+			s.previewStory = s.previewStory%lastStory + 1
+			s.previewStoryStart = time.Now()
+			set(controls[idStoryStatus], s.previewStory.title())
+		}
 	case idCouplePage:
 		page(3)
 	case idCoupleCalendarButton:
@@ -639,7 +652,9 @@ func setupUI() {
 	check(idMonitor, 649, 531, "시스템 사용량")
 	check(idMulti, 869, 531, "모든 모니터")
 	check(idPhysics, 649, 567, "바람과 눈 쌓임")
-	label("무음 상태에서는 기본 애니메이션이 재생돼요.", 649, 611, 427, 24)
+	check(idStories, 869, 567, "성탄 이야기")
+	button(idStoryPreview, 649, 605, 205, "이야기 미리보기")
+	child("STATIC", noStory.title(), 0, 869, 611, 207, 24, idStoryStatus)
 	buildPage = 3
 	setupCouplePage()
 	buildPage = 0
@@ -985,7 +1000,7 @@ func mainProc(h, m, a, b uintptr) uintptr {
 			uiRead()
 			return 0
 		}
-		if notification == 0 && (toggleIDs[id] || (id >= 130 && id <= 148) || id == idCouplePage || id == idCoupleCalendarButton) {
+		if notification == 0 && (toggleIDs[id] || (id >= 130 && id <= 148) || id == idCouplePage || id == idCoupleCalendarButton || id == idStoryPreview) {
 			command(id)
 		}
 		return 0

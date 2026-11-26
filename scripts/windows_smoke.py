@@ -162,6 +162,17 @@ def verify_app(app, env, config, version):
         expected = {"Enabled": True, "FirstName": "지우", "SecondName": "하늘", "StartDate": today}
         wait(lambda: config.is_file() and json.loads(config.read_bytes()).get("Couple") == expected, "커플 기념일 저장")
         print("커플 기념일 입력 검증, 한글 출력 및 설정 저장 통과", flush=True)
+        command(hwnd, 148)
+        story_status = USER32.GetDlgItem(hwnd, 174)
+        wait(lambda: USER32.IsWindowVisible(story_status), "음악과 효과 탭의 성탄 이야기 설정")
+        assert json.loads(config.read_bytes())["Stories"] is True
+        command(hwnd, 172)
+        command(hwnd, 140)
+        wait(lambda: json.loads(config.read_bytes())["Stories"] is False, "성탄 이야기 자동 재생 끄기")
+        for scene in ("산타와 루돌프", "트리 아래 선물", "성냥불과 작은 손님", "눈사람의 목도리", "겨울 하늘의 별똥별", "산타와 루돌프"):
+            command(hwnd, 173)
+            wait(lambda: text(story_status) == scene, f"이야기 미리보기 {scene}")
+        print("성탄 이야기 다섯 장면 전환, 순환 및 자동 재생 끄기 통과", flush=True)
         combo = USER32.GetDlgItem(hwnd, 160)
         assert combo and USER32.SendMessageW(combo, 0x146, 0, 0) == 3
         for index, label in [(1, "1080p"), (2, "4K")]:
@@ -186,6 +197,8 @@ def verify_app(app, env, config, version):
     process = start(app, env)
     try:
         hwnd = window(process, "DCTMain")
+        command(hwnd, 140)
+        assert json.loads(config.read_bytes())["Stories"] is False
         command(hwnd, 162)
         status = USER32.GetDlgItem(hwnd, 167)
         wait(lambda: USER32.IsWindowVisible(status) and text(status) == expected_caption, "재실행 후 기념일 유지")

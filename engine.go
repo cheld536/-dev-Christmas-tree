@@ -17,7 +17,7 @@ type Settings struct {
 	FullscreenResolution                                                                    string
 	CodeStyle                                                                               int
 	AudioGain, BassGain, MidGain, HighGain                                                  int
-	Spectrum, ShowBPM, SafeLights, LowPower                                                 bool
+	Spectrum, ShowBPM, SafeLights, LowPower, Stories                                        bool
 	Snow, Ornaments, Messages, Bloom, Matrix, Countdown, Monitor, Music, Multi, SnowPhysics bool
 }
 
@@ -29,7 +29,7 @@ var renderers = []string{"OpenGL (auto fallback)", "GDI (compatibility)"}
 var fullscreenResolutions = []string{"자동 (모니터 해상도)", "1080p", "4K"}
 
 func defaults() Settings {
-	return Settings{Theme: themes[0], Direction: directions[0], Custom: "#5BD6FF", Background: "#0D0D0D", Renderer: renderers[1], FullscreenResolution: fullscreenResolutions[0], Speed: 100, LightSpeed: 100, FPS: 60, Size: 88, Snow: true, Ornaments: true, Messages: true, Bloom: true, Matrix: true, Countdown: true, Music: true, Multi: true, SnowPhysics: true, AudioPreset: audioPresets[0], AudioGain: 100, BassGain: 100, MidGain: 100, HighGain: 100, Spectrum: true, ShowBPM: false, SafeLights: true}
+	return Settings{Theme: themes[0], Direction: directions[0], Custom: "#5BD6FF", Background: "#0D0D0D", Renderer: renderers[1], FullscreenResolution: fullscreenResolutions[0], Speed: 100, LightSpeed: 100, FPS: 60, Size: 88, Snow: true, Ornaments: true, Messages: true, Bloom: true, Matrix: true, Countdown: true, Music: true, Multi: true, SnowPhysics: true, Stories: true, AudioPreset: audioPresets[0], AudioGain: 100, BassGain: 100, MidGain: 100, HighGain: 100, Spectrum: true, ShowBPM: false, SafeLights: true}
 }
 func clamp(x, a, b int) int {
 	if x < a {
@@ -136,6 +136,9 @@ func radius(y float64) float64 {
 	}
 	return .025
 }
+
+const trunkBottom = -1.37
+
 func tree() []Point {
 	r := rand.New(rand.NewSource(1225))
 	p := []Point{}
@@ -166,7 +169,7 @@ func tree() []Point {
 	}
 	for i := 0; i < 22; i++ {
 		for j := 0; j < 22; j++ {
-			add(-1.37+float64(i)*.022, 2*math.Pi*float64(j)/22, .105, '|', 4, 0)
+			add(trunkBottom+float64(i)*.022, 2*math.Pi*float64(j)/22, .105, '|', 4, 0)
 		}
 	}
 	return p
@@ -254,6 +257,14 @@ func frame(cols, rows int, t, angle, audio float64, s Settings, stats string) Fr
 	return audioFrame(cols, rows, t, angle, AudioFrame{Level: audio}, s, stats, false)
 }
 func audioFrame(cols, rows int, t, angle float64, af AudioFrame, s Settings, stats string, overlay bool) Frame {
+	var story storyMoment
+	if s.Stories {
+		story = scheduledStory(time.Duration(t * float64(time.Second)))
+	}
+	return composeFrame(cols, rows, t, angle, af, s, stats, overlay, story)
+}
+
+func composeFrame(cols, rows int, t, angle float64, af AudioFrame, s Settings, stats string, overlay bool, story storyMoment) Frame {
 	audio := af.Level
 	bass := math.Max(af.Bands[0], af.Bands[1])
 	mid := (af.Bands[2] + af.Bands[3] + af.Bands[4]) / 3
@@ -382,6 +393,10 @@ func audioFrame(cols, rows int, t, angle float64, af AudioFrame, s Settings, sta
 			x, y, d := project(math.Cos(a)*rad, -.1+math.Sin(a*2)*.8, math.Sin(a)*rad)
 			put(x, y, '.', hsv(float64(i)/20, .55, .65*af.Beat), d-2, true)
 		}
+	}
+	if story.kind != noStory {
+		_, trunkY, _ := project(0, trunkBottom, 0)
+		drawStory(cols, rows, trunkY, story, put)
 	}
 	if s.ShowBPM && s.Music && af.BPM > 0 {
 		label(rows-4, fmt.Sprintf("~ %.0f BPM", af.BPM), 0x9FB6CF)

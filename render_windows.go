@@ -21,6 +21,8 @@ type surface struct {
 	uiFont, uiBold, uiCode                                uintptr
 	uiFontSize                                            int
 	next                                                  time.Time
+	previewStory                                          storyKind
+	previewStoryStart                                     time.Time
 }
 
 func (s *surface) free() {
@@ -146,7 +148,7 @@ func (s *surface) draw(force bool) {
 	if !s.saver || fullScreen {
 		couple, _ = coupleCaption(cfg.Couple, now)
 	}
-	treeH := sceneH - footerHeight(ww, sceneH, line, cfg.Messages, s.saver && fullScreen, couple.names != "")
+	treeH := sceneH - footerHeight(ww, sceneH, line, cfg.Messages, s.saver && fullScreen, couple.firstName != "")
 	size := clamp(treeH/52, 9, 46)
 	cw := int(math.Round(float64(size) * .62))
 	ch := int(math.Round(float64(size) * 1.18))
@@ -159,7 +161,16 @@ func (s *surface) draw(force bool) {
 	sceneCfg := cfg
 	sceneCfg.Spectrum = false
 	sceneCfg.Message = ""
-	f := audioFrame(cols, rows, now.Sub(s.begin).Seconds(), s.angle, audioState, sceneCfg, currentStats, false)
+	elapsed := now.Sub(s.begin)
+	story := storyDuring(s.previewStory, now.Sub(s.previewStoryStart))
+	if story.kind == noStory && !s.previewStoryStart.IsZero() {
+		s.previewStoryStart = time.Time{}
+		set(controls[idStoryStatus], noStory.title())
+	}
+	if story.kind == noStory && cfg.Stories {
+		story = scheduledStory(elapsed)
+	}
+	f := composeFrame(cols, rows, elapsed.Seconds(), s.angle, audioState, sceneCfg, currentStats, false, story)
 	ox := (ww - cols*cw) / 2
 	oy := (treeH - rows*ch) / 2
 	s.drawGDI(f, ww, hh, cw, ch, ox, oy, size, sceneH, treeH, couple)

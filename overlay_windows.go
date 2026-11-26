@@ -80,17 +80,28 @@ func (s *surface) drawCoupleLine(bounds rect, couple coupleDisplay) {
 		call(g, "GetTextExtentPoint32W", dc, w(text), uintptr(length), ptr(&size))
 		return size.X
 	}
-	line := couple.text()
-	width, counterWidth := textWidth(line), textWidth("  "+couple.counter)
+	const heart = "♥"
+	gap := max(2, textWidth(" "))
+	first, second := textWidth(couple.firstName)+1, textWidth(couple.secondName)+1
+	heartWidth, counterWidth := textWidth(heart)+1, textWidth(couple.counter)+1
 	call(g, "SelectObject", dc, old)
-	const tint = 0xFFD4E7
-	if width <= bounds.R-bounds.L {
-		textAt(dc, s.uiFont, bounds, line, tint, 1)
-		return
+
+	available := bounds.R - bounds.L
+	counterWidth = min(counterWidth, max(0, available-heartWidth-4*gap))
+	first, second = fitCoupleNames(first, second, available-heartWidth-counterWidth-4*gap)
+	left := bounds.L + max(0, (available-first-second-heartWidth-counterWidth-4*gap)/2)
+	draw := func(text string, width int32, color uint32) {
+		textAt(dc, s.uiFont, rect{left, bounds.T, min(left+width, bounds.R), bounds.B}, text, color, 0)
+		left += width
 	}
-	cut := bounds.R - counterWidth
-	textAt(dc, s.uiFont, rect{bounds.L, bounds.T, cut, bounds.B}, couple.names, tint, 0)
-	textAt(dc, s.uiFont, rect{max(bounds.L, cut), bounds.T, bounds.R, bounds.B}, couple.counter, tint, 2)
+	const tint = 0xFFD4E7
+	draw(couple.firstName, first, tint)
+	left += gap
+	draw(heart, heartWidth, 0xFF454F)
+	left += gap
+	draw(couple.secondName, second, tint)
+	left += 2 * gap
+	draw(couple.counter, counterWidth, tint)
 }
 
 func (s *surface) drawOverlay(ww, hh, sceneH, treeH int, couple coupleDisplay) {
@@ -190,7 +201,7 @@ func (s *surface) drawOverlay(ww, hh, sceneH, treeH int, couple coupleDisplay) {
 			textAt(dc, font, rect{int32(pad), int32(y), int32(ww - pad), int32(y + line)}, text, color, 1)
 			y += line
 		}
-		if couple.names != "" {
+		if couple.firstName != "" {
 			s.drawCoupleLine(rect{int32(pad), int32(y), int32(ww - pad), int32(y + line)}, couple)
 			y += line
 		} else if code != "" {

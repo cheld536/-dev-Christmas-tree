@@ -7,6 +7,24 @@ import (
 	"time"
 )
 
+func TestFitCoupleNamesSharesTheAvailableSpace(t *testing.T) {
+	for _, tc := range []struct {
+		first, second, budget int32
+		left, right           int32
+	}{
+		{20, 25, 46, 20, 25},
+		{70, 80, 41, 20, 21},
+		{70, 10, 43, 33, 10},
+		{9, 80, 42, 9, 33},
+		{10, 10, -1, 0, 0},
+	} {
+		left, right := fitCoupleNames(tc.first, tc.second, tc.budget)
+		if left != tc.left || right != tc.right {
+			t.Fatalf("너비 %d, %d를 %d에 맞춘 결과 = (%d, %d), 기댓값 = (%d, %d)", tc.first, tc.second, tc.budget, left, right, tc.left, tc.right)
+		}
+	}
+}
+
 func TestCoupleCaptionCalendarDays(t *testing.T) {
 	tests := []struct {
 		name, start string

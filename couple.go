@@ -16,14 +16,20 @@ type CoupleSettings struct {
 }
 
 type coupleDisplay struct {
-	names, counter string
+	firstName, secondName, counter string
 }
 
 func (c coupleDisplay) text() string {
-	if c.names == "" {
+	if c.firstName == "" {
 		return ""
 	}
-	return c.names + "  " + c.counter
+	return c.firstName + " ♥️ " + c.secondName + "  " + c.counter
+}
+
+func fitCoupleNames(first, second, budget int32) (int32, int32) {
+	budget = max(0, budget)
+	left := min(first, max(budget/2, budget-second))
+	return left, min(second, budget-left)
 }
 
 func normalizeCouple(c CoupleSettings) CoupleSettings {
@@ -62,5 +68,5 @@ func coupleCaption(c CoupleSettings, now time.Time) (coupleDisplay, error) {
 	}
 	const secondsPerDay = 24 * 60 * 60
 	days := (today.Unix()-start.Unix())/secondsPerDay + 1
-	return coupleDisplay{c.FirstName + " ♥️ " + c.SecondName, fmt.Sprintf("D+%d일", days)}, nil
+	return coupleDisplay{firstName: c.FirstName, secondName: c.SecondName, counter: fmt.Sprintf("D+%d일", days)}, nil
 }

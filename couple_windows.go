@@ -45,7 +45,7 @@ func updateCoupleStatus() {
 	status := "기념일을 켜면 트리 아래와 F11 화면에 표시됩니다."
 	if display, err := coupleCaption(cfg.Couple, time.Now()); err != nil {
 		status = err.Error()
-	} else if display.names != "" {
+	} else if display.firstName != "" {
 		status = display.text()
 	}
 	if txt(h) != status {
