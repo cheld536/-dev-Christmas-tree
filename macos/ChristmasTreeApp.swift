@@ -65,22 +65,7 @@ private struct TreePreview: View {
     var body: some View {
         VStack(spacing: 0) {
             GeometryReader { viewport in
-                Canvas { context, size in
-                    guard let frame else { return }
-                    let width = size.width / CGFloat(frame.Columns)
-                    let height = size.height / CGFloat(frame.Rows)
-                    let font = Font.system(size: min(width / 0.61, height / 1.15), design: .monospaced)
-                    for cell in frame.Cells {
-                        let position = CGPoint(x: (CGFloat(cell.X) + 0.5) * width, y: (CGFloat(cell.Y) + 0.5) * height)
-                        let color = rgb(cell.Color)
-                        if cell.Glow {
-                            let glimmer = CGRect(x: position.x - width * 0.75, y: position.y - height * 0.38,
-                                                 width: width * 1.5, height: height * 0.76)
-                            context.fill(Path(ellipseIn: glimmer), with: .color(color.opacity(0.14)))
-                        }
-                        context.draw(Text(cell.Glyph).font(font).foregroundColor(color), at: position)
-                    }
-                }
+                AppKitTree(frame: frame)
                 .onAppear { resize(viewport.size) }
                 .onChange(of: viewport.size, perform: resize)
                 .overlay {
@@ -116,6 +101,48 @@ private struct TreePreview: View {
     private func rgb(_ value: UInt32) -> Color {
         Color(red: Double((value >> 16) & 255) / 255,
               green: Double((value >> 8) & 255) / 255, blue: Double(value & 255) / 255)
+    }
+}
+
+private struct AppKitTree: NSViewRepresentable {
+    let frame: TreeFrame?
+
+    func makeNSView(context: Context) -> TreeDrawingView { TreeDrawingView() }
+
+    func updateNSView(_ view: TreeDrawingView, context: Context) {
+        view.frameData = frame
+        view.needsDisplay = true
+    }
+}
+
+private final class TreeDrawingView: NSView {
+    var frameData: TreeFrame?
+    override var isFlipped: Bool { true }
+
+    override func draw(_ dirtyRect: NSRect) {
+        guard let frameData else { return }
+        let width = bounds.width / CGFloat(frameData.Columns)
+        let height = bounds.height / CGFloat(frameData.Rows)
+        let font = NSFont.monospacedSystemFont(ofSize: min(width / 0.61, height / 1.15), weight: .regular)
+        var colors: [UInt32: NSColor] = [:]
+        for cell in frameData.Cells {
+            let position = NSPoint(x: (CGFloat(cell.X) + 0.5) * width, y: (CGFloat(cell.Y) + 0.5) * height)
+            let color = colors[cell.Color] ?? NSColor(
+                srgbRed: CGFloat((cell.Color >> 16) & 255) / 255,
+                green: CGFloat((cell.Color >> 8) & 255) / 255, blue: CGFloat(cell.Color & 255) / 255, alpha: 1)
+            colors[cell.Color] = color
+            if cell.Glow {
+                let glimmer = NSRect(x: position.x - width * 0.75, y: position.y - height * 0.38,
+                                     width: width * 1.5, height: height * 0.76)
+                color.withAlphaComponent(0.14).setFill()
+                NSBezierPath(ovalIn: glimmer).fill()
+            }
+            let glyph = cell.Glyph as NSString
+            let attributes: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: color]
+            let size = glyph.size(withAttributes: attributes)
+            glyph.draw(at: NSPoint(x: position.x - size.width / 2, y: position.y - size.height / 2),
+                       withAttributes: attributes)
+        }
     }
 }
 
