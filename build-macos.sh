@@ -19,7 +19,7 @@ sed "s/@VERSION@/$version/g" macos/Info.plist > "$app/Contents/Info.plist"
 
 GOOS=darwin GOARCH="$goarch" CGO_ENABLED=0 go build -trimpath -o "$app/Contents/Helpers/tree-renderer" .
 xcrun swiftc -swift-version 5 -O -target "$cpu-apple-macos12.0" \
-    macos/ChristmasTreeApp.swift macos/TreeProcess.swift -o "$app/Contents/MacOS/DeveloperChristmasTree"
+    macos/*.swift -o "$app/Contents/MacOS/DeveloperChristmasTree"
 
 # 기존 트리 아이콘의 256픽셀 PNG를 macOS 아이콘으로 변환합니다.
 python3 - "$work/Tree.png" <<'PY'

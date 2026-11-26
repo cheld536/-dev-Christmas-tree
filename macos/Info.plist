@@ -22,5 +22,7 @@
     <string>12.0</string>
     <key>NSHighResolutionCapable</key>
     <true/>
+    <key>NSAudioCaptureUsageDescription</key>
+    <string>재생 중인 시스템 소리를 분석하여 트리 조명과 이퀄라이저를 움직입니다.</string>
 </dict>
 </plist>

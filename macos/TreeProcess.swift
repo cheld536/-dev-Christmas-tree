@@ -45,6 +45,8 @@ struct TreeFrame: Decodable {
     let SecondName: String
     let Counter: String
     let CoupleError: String
+    let AudioActive: Bool
+    let AudioBars: [Double]?
 }
 
 private struct FrameRequest: Encodable {
@@ -54,6 +56,10 @@ private struct FrameRequest: Encodable {
     let Angle: Double
     let StoryPreview: Int
     let StoryElapsed: Double
+    let AudioPCM: Data
+    let AudioRate: Int
+    let AudioEnabled: Bool
+    let Equalizer: String
     let Settings: SceneSettings
 }
 
@@ -68,6 +74,12 @@ final class TreeProcess: ObservableObject {
     @Published private(set) var frame: TreeFrame?
     @Published private(set) var error: String?
     @Published private(set) var storyTitle = ""
+    @Published private(set) var musicEnabled = false
+    @Published private(set) var audioChanging = false
+    @Published private(set) var audioError = ""
+    @Published var equalizer = UserDefaults.standard.string(forKey: "TreeEqualizer") ?? "ring" {
+        didSet { UserDefaults.standard.set(equalizer, forKey: "TreeEqualizer") }
+    }
 
     private let process = Process()
     private let input = Pipe()
@@ -82,6 +94,7 @@ final class TreeProcess: ObservableObject {
     private var angle = 0.0
     private var previewStart = 0.0
     private var storyIndex = 0
+    private var capture: AnyObject?
     private var smokeStage = 0
     private let smokeTest = CommandLine.arguments.contains("--smoke-test")
 
@@ -136,11 +149,43 @@ final class TreeProcess: ObservableObject {
     }
 
     func stop() {
+        if musicEnabled { setMusic(false) }
         timer?.invalidate()
         timer = nil
         output.fileHandleForReading.readabilityHandler = nil
         try? input.fileHandleForWriting.close()
         if process.isRunning { process.terminate() }
+    }
+
+    func setMusic(_ enabled: Bool) {
+        guard #available(macOS 13.0, *), !audioChanging, enabled != musicEnabled else { return }
+        audioChanging = true
+        audioError = ""
+        if enabled {
+            let audio = SystemAudio { [weak self] ended in
+                guard let self, self.capture === ended else { return }
+                self.capture = nil
+                self.musicEnabled = false
+                self.audioError = "시스템 오디오 연결이 끊겼습니다."
+            }
+            Task { @MainActor in
+                defer { audioChanging = false }
+                do {
+                    try await audio.start()
+                    capture = audio
+                    musicEnabled = true
+                } catch {
+                    audioError = "시스템 설정에서 화면 및 시스템 오디오 녹화 권한을 확인해 주세요."
+                }
+            }
+        } else if let audio = capture as? SystemAudio {
+            capture = nil
+            musicEnabled = false
+            Task { @MainActor in
+                await audio.stop()
+                audioChanging = false
+            }
+        }
     }
 
     private func tick() {
@@ -158,11 +203,17 @@ final class TreeProcess: ObservableObject {
             storyTitle = ""
         }
         let size = max(9, canvasSize.height / 57)
+        var samples = Data()
+        var sampleRate = 0
+        if #available(macOS 13.0, *), let audio = capture as? SystemAudio {
+            (samples, sampleRate) = audio.drain()
+        }
         let request = FrameRequest(
             Columns: max(16, Int(canvasSize.width / (size * 0.62))),
             Rows: max(12, Int(canvasSize.height / (size * 1.18))),
             Elapsed: now - start, Angle: angle, StoryPreview: storyTitle.isEmpty ? 0 : storyIndex,
-            StoryElapsed: progress, Settings: settings)
+            StoryElapsed: progress, AudioPCM: samples, AudioRate: sampleRate, AudioEnabled: musicEnabled,
+            Equalizer: equalizer, Settings: settings)
         do {
             var data = try JSONEncoder().encode(request)
             data.append(10)

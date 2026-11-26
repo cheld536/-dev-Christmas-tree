@@ -77,6 +77,15 @@ private struct TreePreview: View {
                 }
             }
             if let frame {
+                if let bars = frame.AudioBars {
+                    HStack(alignment: .bottom, spacing: 2) {
+                        ForEach(bars.indices, id: \.self) { i in
+                            Rectangle().fill(Color(hue: Double(i) / Double(bars.count), saturation: 0.65, brightness: 0.85))
+                                .frame(height: 2 + 34 * CGFloat(bars[i])).frame(maxWidth: .infinity)
+                        }
+                    }
+                    .frame(height: 40, alignment: .bottom).padding(.horizontal, 18)
+                }
                 if !frame.FirstName.isEmpty {
                     (
                         Text(frame.FirstName + " ").foregroundColor(.white) +
@@ -180,6 +189,26 @@ private struct TreeControls: View {
                 slider("회전 속도", $renderer.settings.Speed, range: 0...400)
                 slider("조명 변화 속도", $renderer.settings.LightSpeed, range: 0...400)
                 slider("트리 크기", $renderer.settings.Size, range: 45...100)
+                Divider()
+                if #available(macOS 13.0, *) {
+                    Toggle("시스템 음악 반응", isOn: Binding(get: { renderer.musicEnabled }, set: renderer.setMusic))
+                        .disabled(renderer.audioChanging)
+                    if renderer.musicEnabled {
+                        Picker("이퀄라이저", selection: $renderer.equalizer) {
+                            Text("트리 둘레").tag("ring")
+                            Text("하단 막대").tag("bars")
+                            Text("끄기").tag("off")
+                        }
+                        Text(renderer.frame?.AudioActive == true ? "시스템 오디오 감지됨" : "다른 앱에서 음악을 재생해 주세요.")
+                            .font(.caption).foregroundColor(.secondary)
+                    }
+                    if !renderer.audioError.isEmpty {
+                        Text(renderer.audioError).font(.caption).foregroundColor(.secondary)
+                    }
+                } else {
+                    Text("시스템 음악 반응은 macOS 13 이상에서 사용할 수 있습니다.")
+                        .font(.caption).foregroundColor(.secondary)
+                }
                 Divider()
                 Toggle("눈 내리기", isOn: $renderer.settings.Snow)
                 Toggle("코드 장식", isOn: $renderer.settings.Ornaments)
