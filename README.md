@@ -4,8 +4,7 @@ Windows에서 돌아가는 3D ASCII 크리스마스 트리입니다. 음악에 �
 
 | 시작 방법 | 다운로드 및 실행 |
 | --- | --- |
-| **정식 릴리스 v2.4.0** · Windows 10/11 x64 | [설치 EXE](https://github.com/cheld536/-dev-Christmas-tree/releases/download/v2.4.0/DeveloperChristmasTree_v2.4_Setup.exe) · [설치 방법](#exe로-설치하기) |
-| **개발 빌드 v2.4.2** · 성탄 이야기, 달력, 빨간 하트 | [Windows 빌드 ZIP](https://github.com/cheld536/-dev-Christmas-tree/actions/runs/45728309184/artifacts/15075791929) · [개발 빌드 설치 방법](#v242-개발-빌드-설치하기) |
+| **최신 정식 릴리스 v2.4.2** · Windows 10/11 x64 | [설치 EXE](https://github.com/cheld536/-dev-Christmas-tree/releases/download/v2.4.2/DeveloperChristmasTree_v2.4.2_Setup.exe) · [릴리스 및 SHA256](https://github.com/cheld536/-dev-Christmas-tree/releases/tag/v2.4.2) · [설치 방법](#exe로-설치하기) |
 | **Python v1** · Tkinter와 터미널 | [Python 소스로 실행하기](#python-소스로-실행하기) |
 
 ![v2.4.2의 음악과 효과 탭에서 루돌프와 산타 썰매를 미리 보는 화면](docs/images/story-settings-v2.4.2.png)
@@ -21,7 +20,7 @@ Windows에서 돌아가는 3D ASCII 크리스마스 트리입니다. 음악에 �
 ### 커플 기념일
 
 1. 설정 창 오른쪽 위의 **커플 기념일** 탭을 엽니다.
-2. 두 이름을 입력하고 **달력에서 선택**으로 시작일을 고릅니다. 정식 v2.4.0에서는 시작일을 `YYYY-MM-DD` 형식으로 직접 입력합니다. **커플 기념일 표시**를 켭니다.
+2. 두 이름을 입력하고 **달력에서 선택**으로 시작일을 고릅니다. 날짜를 `YYYY-MM-DD` 형식으로 직접 입력할 수도 있습니다. **커플 기념일 표시**를 켭니다.
 3. **저장**을 누릅니다. 미리보기와 F11 전체 화면의 트리 아래에 `지우 ♥️ 하늘  D+100일`과 같은 형식으로 표시됩니다.
 
 시작일은 `D+1일`입니다. 카운터를 끄면 개발자 문구가 다시 표시됩니다. 이름과 날짜는 이 PC의 앱 설정에 저장하며, 시각 프리셋 내보내기에서는 제외합니다.
@@ -49,29 +48,22 @@ Windows에서 돌아가는 3D ASCII 크리스마스 트리입니다. 음악에 �
 
 Windows용 v2 설치 EXE에는 실행에 필요한 파일이 포함되어 있습니다.
 
-1. [v2.4.0 릴리스](https://github.com/cheld536/-dev-Christmas-tree/releases/tag/v2.4.0)의 **Assets**에서 **`DeveloperChristmasTree_v2.4_Setup.exe`**를 내려받습니다. 기존 트리 창이 열려 있으면 먼저 닫습니다.
+1. [v2.4.2 릴리스](https://github.com/cheld536/-dev-Christmas-tree/releases/tag/v2.4.2)의 **Assets**에서 **`DeveloperChristmasTree_v2.4.2_Setup.exe`**를 내려받습니다. 기존 트리 창이 열려 있으면 먼저 닫습니다.
 2. 설치 파일을 두 번 클릭합니다. **바탕 화면에 바로가기 만들기**는 기본으로 선택되어 있습니다. 화면 보호기도 등록하려면 **Windows 화면 보호기로 사용**을 선택한 뒤 **설치**를 누릅니다.
 3. 설치가 끝나면 **실행**을 누릅니다. 이후에는 시작 메뉴나 바탕 화면에서 **Developer Christmas Tree**를 엽니다.
 4. 테마·회전·음악 반응을 조절하고 **저장**을 누릅니다. **F11**로 일반 전체 화면을 열고 **Esc** 또는 **F11**로 돌아갑니다. **화면 보호기 미리보기**로 화면 보호기 동작을 확인할 수 있습니다.
 
-![v2.4.0 설치 창과 화면 보호기·바탕 화면 바로가기 옵션](docs/images/setup-v2.4.png)
+![v2.4.2 설치 창과 화면 보호기·바탕 화면 바로가기 옵션](docs/images/setup-v2.4.2.png)
 
 음악에 반응하는 조명과 주파수 막대를 사용하려면 [음악과 효과 설정](#음악과-효과-설정)을 확인하세요.
 
 **화면 보호기 변경**은 앱의 **Windows 화면 보호기** 버튼에서 할 수 있습니다. 잠금이 필요하면 Windows 화면 보호기 설정에서 로그온 화면 표시를 선택합니다. **제거**는 Windows의 **설정 → 앱 → 설치된 앱 → Developer Christmas Tree**에서 진행합니다. 저장한 설정을 지울지 선택할 수 있습니다.
 
-### v2.4.2 개발 빌드 설치하기
-
-1. GitHub에 로그인하고 [v2.4.2 Windows 빌드 ZIP](https://github.com/cheld536/-dev-Christmas-tree/actions/runs/45728309184/artifacts/15075791929)을 내려받습니다.
-2. 압축을 풀면 `DeveloperChristmasTree_v2.4.2_Setup.exe`와 `v2.4.2-SHA256SUMS.txt`가 나옵니다. 아래 SHA256 확인 예시에서 두 파일명을 v2.4.2로 바꿔 검사할 수 있습니다.
-3. 기존 트리 창을 닫고 EXE를 실행합니다. **설치 → 실행 → 음악과 효과 → 이야기 미리보기** 순서로 열면 새 장면을 바로 볼 수 있습니다.
-
-Actions의 다운로드 보존 기간이 끝나면 [개발 및 빌드](#개발-및-빌드) 명령으로 소스에서 설치기를 만들 수 있습니다.
-
 ### 정식 버전별 다운로드
 
 | 버전 | EXE 바로 받기 | 실행 방식 |
 | --- | --- | --- |
+| [v2.4.2](https://github.com/cheld536/-dev-Christmas-tree/releases/tag/v2.4.2) | [DeveloperChristmasTree_v2.4.2_Setup.exe](https://github.com/cheld536/-dev-Christmas-tree/releases/download/v2.4.2/DeveloperChristmasTree_v2.4.2_Setup.exe) | Windows 설치 |
 | [v2.4.0](https://github.com/cheld536/-dev-Christmas-tree/releases/tag/v2.4.0) | [DeveloperChristmasTree_v2.4_Setup.exe](https://github.com/cheld536/-dev-Christmas-tree/releases/download/v2.4.0/DeveloperChristmasTree_v2.4_Setup.exe) | Windows 설치 |
 | [v2.3.0](https://github.com/cheld536/-dev-Christmas-tree/releases/tag/v2.3.0) | [DeveloperChristmasTree_v2.3_Setup.exe](https://github.com/cheld536/-dev-Christmas-tree/releases/download/v2.3.0/DeveloperChristmasTree_v2.3_Setup.exe) | Windows 설치 |
 | [v2.2.0](https://github.com/cheld536/-dev-Christmas-tree/releases/tag/v2.2.0) | [DeveloperChristmasTree_v2.2_Setup.exe](https://github.com/cheld536/-dev-Christmas-tree/releases/download/v2.2.0/DeveloperChristmasTree_v2.2_Setup.exe) | Windows 설치 |
@@ -82,11 +74,11 @@ Actions의 다운로드 보존 기간이 끝나면 [개발 및 빌드](#개발-�
 <details>
 <summary>다운로드한 파일의 SHA256 확인</summary>
 
-검사할 EXE와 같은 버전의 `SHA256SUMS.txt`를 같은 폴더로 내려받습니다. 그 폴더에서 PowerShell을 열고 두 명령이 출력하는 64자리 검사값을 비교합니다. 아래 예시는 v2.4.0 기준입니다.
+검사할 EXE와 같은 버전의 검사값 파일을 같은 폴더로 내려받습니다. 그 폴더에서 PowerShell을 열고 두 명령이 출력하는 64자리 검사값을 비교합니다. 아래 예시는 v2.4.2 기준입니다.
 
 ```powershell
-Get-FileHash -Algorithm SHA256 .\DeveloperChristmasTree_v2.4_Setup.exe
-Get-Content .\v2.4.0-SHA256SUMS.txt
+Get-FileHash -Algorithm SHA256 .\DeveloperChristmasTree_v2.4.2_Setup.exe
+Get-Content .\v2.4.2-SHA256SUMS.txt
 ```
 
 </details>
