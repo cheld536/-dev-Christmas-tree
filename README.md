@@ -7,7 +7,8 @@ Windows와 macOS에서 즐기는 3D ASCII 크리스마스 트리입니다. 트�
 | 운영체제 | 파일 형식 | 다운로드 |
 | --- | --- | --- |
 | **Windows 10/11 x64** | `Setup.exe` · 정식 v2.4.3 | [Windows 설치 EXE](https://github.com/cheld536/-dev-Christmas-tree/releases/download/v2.4.3/DeveloperChristmasTree_v2.4.3_Setup.exe) · [SHA256](https://github.com/cheld536/-dev-Christmas-tree/releases/download/v2.4.3/v2.4.3-SHA256SUMS.txt) · [설치 방법](#exe로-설치하기) |
-| **macOS 12 이상 · Apple Silicon 및 Intel** | 통합 설치 `.pkg` · 테스트 빌드 | [macOS 빌드](https://github.com/cheld536/-dev-Christmas-tree/actions/workflows/macos.yml?query=branch%3Amain+is%3Asuccess)에서 **DeveloperChristmasTree-macOS-Universal-Installer** 선택 |
+| **macOS 12 이상 · Apple Silicon** | DMG와 앱 ZIP · 개발 빌드 | [DeveloperChristmasTree-macOS-arm64.zip](https://github.com/cheld536/-dev-Christmas-tree/releases/download/macos-v2.4.3/DeveloperChristmasTree-macOS-arm64.zip) |
+| **macOS 12 이상 · Intel** | DMG와 앱 ZIP · 개발 빌드 | [DeveloperChristmasTree-macOS-x86_64.zip](https://github.com/cheld536/-dev-Christmas-tree/releases/download/macos-v2.4.3/DeveloperChristmasTree-macOS-x86_64.zip) |
 
 [macOS 설치 방법](#macos에서-실행하기) · [Python 소스로 실행하기](#python-소스로-실행하기)
 
@@ -94,13 +95,15 @@ Get-Content .\v2.4.3-SHA256SUMS.txt
 
 ## macOS에서 실행하기
 
-1. 위 표의 링크에서 성공한 빌드의 **Artifacts**를 열고 **DeveloperChristmasTree-macOS-Universal-Installer**를 받습니다. GitHub Actions에서 받은 ZIP은 한 번 풀면 됩니다.
-2. `DeveloperChristmasTree_v2.4.3_macOS-universal-preview.pkg`를 두 번 클릭하고 **계속 → 설치**를 누릅니다. Apple Silicon과 Intel Mac에서 같은 파일을 사용합니다.
+1. **이 Mac에 관하여**에서 칩을 확인합니다. Apple 칩은 위 표의 **arm64**, Intel 프로세서는 **x86_64** ZIP을 클릭하면 됩니다. 두 파일은 GitHub 로그인 없이 받을 수 있습니다.
+2. ZIP을 풀고 안에 있는 DMG를 엽니다. **Developer Christmas Tree.app**을 **Applications**로 끌어다 놓습니다.
 3. 설치가 끝나면 **응용 프로그램 → Developer Christmas Tree**를 엽니다. **전체 화면** 또는 **Control+Command+F**로 전체 화면을 전환할 수 있습니다. 설정은 Mac에 자동으로 저장됩니다.
 
 macOS 앱은 트리 테마, 성탄 이야기, 개발자 인사말, 커플 기념일 달력과 빨간 하트를 지원합니다. **macOS 13 이상**에서는 **시스템 음악 반응**을 켜고 다른 앱에서 음악을 재생하면 조명과 이퀄라이저가 반응합니다. 처음 이용할 때는 macOS의 **화면 및 시스템 오디오 녹화** 권한을 허용합니다. 앱은 음악 효과를 위해 오디오 샘플만 분석하며, 녹음 파일을 만들지 않습니다. 미디어 제어와 화면 보호기 등록은 Windows판 기능입니다.
 
-GitHub Actions의 `preview.pkg`는 개발자 ID 서명과 Apple 공증이 적용되지 않아 다운로드한 Mac에서 설치가 차단될 수 있습니다. 일반 배포에는 서명과 공증을 마친 `notarized.pkg`가 필요합니다. DMG와 앱 ZIP은 아키텍처별 **DeveloperChristmasTree-macOS-arm64**, **DeveloperChristmasTree-macOS-x86_64** 아티팩트에서 받을 수 있습니다.
+두 ZIP은 Actions에 생성된 원본 아카이브이며, [macOS 다운로드 페이지](https://github.com/cheld536/-dev-Christmas-tree/releases/tag/macos-v2.4.3)에 원본 SHA256이 있습니다. 개발자 ID 서명과 Apple 공증이 적용되지 않아 다운로드한 Mac에서 실행이 차단될 수 있습니다.
+
+통합 설치 `preview.pkg`는 테스트용이며 [macOS Actions 빌드](https://github.com/cheld536/-dev-Christmas-tree/actions/workflows/macos.yml)의 **DeveloperChristmasTree-macOS-Universal-Installer**에서 받습니다.
 
 <details>
 <summary>macOS 설치 패키지의 SHA256 확인</summary>
