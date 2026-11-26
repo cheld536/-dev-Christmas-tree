@@ -101,6 +101,6 @@ jobs:
           sudo installer -pkg ./*.pkg -target /
           app='/Applications/Developer Christmas Tree.app'
           codesign --verify --deep --strict "$app"
-          lipo -verify_arch arm64 x86_64 "$app/Contents/MacOS/DeveloperChristmasTree"
-          lipo -verify_arch arm64 x86_64 "$app/Contents/Helpers/tree-renderer"
+          lipo "$app/Contents/MacOS/DeveloperChristmasTree" -verify_arch arm64 x86_64
+          lipo "$app/Contents/Helpers/tree-renderer" -verify_arch arm64 x86_64
           python3 -c 'import subprocess, sys; subprocess.run([sys.argv[1], "--smoke-test"], check=True, timeout=45)' "$app/Contents/MacOS/DeveloperChristmasTree"

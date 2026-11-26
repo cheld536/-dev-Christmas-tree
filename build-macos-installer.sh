@@ -27,11 +27,11 @@ done
 app="$work/$app_name"
 ditto "$arm" "$app"
 for binary in MacOS/DeveloperChristmasTree Helpers/tree-renderer; do
-    lipo -verify_arch arm64 "$arm/Contents/$binary"
-    lipo -verify_arch x86_64 "$intel/Contents/$binary"
-    lipo -create "$arm/Contents/$binary" "$intel/Contents/$binary" -output "$app/Contents/$binary"
+    lipo "$arm/Contents/$binary" -verify_arch arm64
+    lipo "$intel/Contents/$binary" -verify_arch x86_64
+    lipo "$arm/Contents/$binary" "$intel/Contents/$binary" -create -output "$app/Contents/$binary"
     chmod 755 "$app/Contents/$binary"
-    lipo -verify_arch arm64 x86_64 "$app/Contents/$binary"
+    lipo "$app/Contents/$binary" -verify_arch arm64 x86_64
 done
 
 app_identity="${DCT_MAC_APP_IDENTITY:-}"
