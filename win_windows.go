@@ -351,6 +351,7 @@ const (
 	idStoryStatus          = 174
 	idRingSpectrum         = 175
 	idLockScreen           = 176
+	idFullscreenHotkey     = 177
 )
 
 func selectCombo(id int, items []string, s string) {
@@ -594,6 +595,7 @@ func setupUI() {
 	makeSettingsFonts()
 	heading("Christmas Tree", 25, 13, 260, 37, titleFont)
 	label("3D ASCII SCREENSAVER  /  LIVE CONFIGURATION", 303, 25, 515, 23)
+	child("STATIC", registerFullscreenHotkey(mainwin), 2, 829, 25, 145, 23, idFullscreenHotkey)
 	child("STATIC", "v"+version, 2, 987, 25, 102, 23, idVersion)
 	heading("LIVE PREVIEW  ·  실시간 미리보기", 30, 78, 350, 28, sectionFont)
 	audioStatus = child("STATIC", "", 2, 390, 82, 220, 22, 0)
@@ -938,6 +940,9 @@ func renderProc(h, m, a, b uintptr) uintptr {
 	case wmKey, wmSysKey, 0x201, 0x204, 0x207:
 		if sf != nil && sf.saver && fullScreen {
 			if m == wmKey || m == wmSysKey {
+				if a == vkF11 && !plainF11() {
+					return 0
+				}
 				if b&(1<<30) == 0 || (a >= 0x25 && a <= 0x28) || a == 'G' || a == 'J' {
 					fullKey(a)
 				}
@@ -967,6 +972,9 @@ func renderProc(h, m, a, b uintptr) uintptr {
 }
 func mainProc(h, m, a, b uintptr) uintptr {
 	switch m {
+	case wmHotkey:
+		handleFullscreenHotkey(a, b)
+		return 0
 	case 0x02E0:
 		if h == mainwin && b != 0 {
 			changeSettingsDPI(h, low(a), *(*rect)(unsafe.Pointer(b)))
@@ -1035,6 +1043,7 @@ func mainProc(h, m, a, b uintptr) uintptr {
 		call(u, "DestroyWindow", h)
 		return 0
 	case wmDestroy:
+		unregisterFullscreenHotkey(h)
 		call(u, "PostQuitMessage", 0)
 		return 0
 	}
@@ -1119,7 +1128,7 @@ loop:
 			if coupleCalendarKey(m) {
 				continue
 			}
-			if mainwin != 0 && len(saverWindows) == 0 && m.M == wmKey && m.W == 0x7A {
+			if mainwin != 0 && len(saverWindows) == 0 && m.M == wmKey && m.W == vkF11 && plainF11() {
 				openFull()
 				continue
 			}

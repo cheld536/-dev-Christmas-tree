@@ -19,6 +19,8 @@ USER32.EnumChildWindows.argtypes = [wintypes.HWND, ENUM, wintypes.LPARAM]
 USER32.GetWindowThreadProcessId.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.DWORD)]
 USER32.GetClassNameW.argtypes = [wintypes.HWND, wintypes.LPWSTR, ctypes.c_int]
 USER32.IsWindowVisible.argtypes = [wintypes.HWND]
+USER32.ShowWindow.argtypes = [wintypes.HWND, ctypes.c_int]
+USER32.IsIconic.argtypes = [wintypes.HWND]
 USER32.GetDlgItem.argtypes = [wintypes.HWND, ctypes.c_int]
 USER32.GetDlgItem.restype = wintypes.HWND
 USER32.GetDlgCtrlID.argtypes = [wintypes.HWND]
@@ -122,6 +124,19 @@ def verify_app(app, env, config, version, check_lock_screen=False):
         hwnd = window(process, "DCTMain")
         assert text(hwnd) == "Developer Christmas Tree"
         assert text(USER32.GetDlgItem(hwnd, 161)) == "v" + version
+        shortcut = text(USER32.GetDlgItem(hwnd, 177))
+        shortcuts = {"Win+Shift+F11": 0x000C, "Ctrl+Shift+F11": 0x0006}
+        assert shortcut in (*shortcuts, "앱에서 F11")
+        if shortcut in shortcuts:
+            USER32.ShowWindow(hwnd, 6)
+            wait(lambda: USER32.IsIconic(hwnd), "설정 창 최소화")
+            keys = (0x7A << 16) | shortcuts[shortcut]
+            assert USER32.PostMessageW(hwnd, 0x0312, 1, keys)
+            window(process, "DCTRender")
+            assert USER32.PostMessageW(hwnd, 0x0312, 1, keys)
+            wait(lambda: not visible_windows(process, "DCTRender"), "전역 단축키로 전체 화면 닫기")
+            USER32.ShowWindow(hwnd, 9)
+            print(f"최소화 상태에서 {shortcut} 전체 화면 열기·닫기 통과", flush=True)
         lock_control = USER32.GetDlgItem(hwnd, 176)
         assert text(lock_control) == "잠금 화면 이미지 적용"
         if check_lock_screen:
