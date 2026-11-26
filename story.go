@@ -155,6 +155,7 @@ func drawStory(cols, rows, trunkY int, moment storyMoment, put func(int, int, ru
 		paint(x, baseY+3, "(_)_", coat)
 		flame := [3]rune{'*', '+', '*'}[int(p*23)%3]
 		spark(x-3, baseY+1, flame, gold)
+		paint(x-3, baseY+2, "|", 0xDC9C65)
 		if int(p*23)%3 == 0 {
 			paint(x-4, baseY, ".", 0xB78358)
 		}
@@ -179,15 +180,19 @@ func drawStory(cols, rows, trunkY int, moment storyMoment, put func(int, int, ru
 	case starStory:
 		x := cols/8 + int(p*float64(cols*3/4))
 		y := 2 + int(p*float64(min(11, rows/3)))
-		for i := 1; i < 12; i++ {
+		for i := 14; i >= 1; i-- {
 			tail := max(0., p-float64(i)*.018)
 			tx := cols/8 + int(tail*float64(cols*3/4))
 			ty := 2 + int(tail*float64(min(11, rows/3)))
-			paint(tx, ty, ".", shade(0xA4BEFF, 1-float64(i)*.07))
+			glyph := "."
+			if i < 6 {
+				glyph = "-"
+			}
+			paint(tx, ty, glyph, shade(0xBFD1FF, 1-float64(i)*.055))
 		}
+		paint(x-1, y, "- -", 0xFFDA8F)
+		paint(x, y-1, "|", 0xFFDA8F)
+		paint(x, y+1, "|", 0xFFDA8F)
 		spark(x, y, '*', 0xFFF0A8)
-		if int(p*20)%3 == 0 {
-			spark(x+2, y-1, '+', snow)
-		}
 	}
 }
